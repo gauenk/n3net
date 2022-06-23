@@ -1,10 +1,9 @@
-# An extended Python implementation of Neural Nearest Neighbors Networks
+# An extended Python implementation of Neural Nearest Neighbors Networks (NeurIPS 2018)
 
-# Neural Nearest Neighbors Networks (NeurIPS*2018)
 
 Tobias Plötz and Stefan Roth, **Neural Nearest Neighbors Networks**, Advances in Neural Information Processing Systems (NeurIPS), 2018
 
-## Citation
+## Citation for Their Paper
 ```
 @inproceedings{Ploetz:2018:NNN,
   title     = {Neural Nearest Neighbors Networks},
