@@ -8,9 +8,10 @@ from setuptools import setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 setup(
-    name='matmul',
+    name='n3net_matmul',
+    packages=["n3net"],
     ext_modules=[
-        CUDAExtension('matmul_cuda', [
+        CUDAExtension('n3net_matmul_cuda', [
             'matmul.cpp',
             'matmul1_kernel.cu',
             'matmul1_bwd_kernel.cu',
