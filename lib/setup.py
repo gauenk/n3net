@@ -12,9 +12,9 @@ setup(
     packages=["n3net"],
     ext_modules=[
         CUDAExtension('n3net_matmul_cuda', [
-            'matmul.cpp',
-            'matmul1_kernel.cu',
-            'matmul1_bwd_kernel.cu',
+            'csrc/matmul.cpp',
+            'csrc/matmul1_kernel.cu',
+            'csrc/matmul1_bwd_kernel.cu',
         ]),
     ],
     cmdclass={

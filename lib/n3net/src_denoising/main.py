@@ -242,6 +242,7 @@ def run(experiment):
 
 def main():
     args = parser.parse_args()
+    print(args)
     if args.eval:
         allargs = dict(vars(args)).keys()
         defaults = {k: parser.get_default(k) for k in allargs}

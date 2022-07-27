@@ -8,16 +8,12 @@ Please see the file LICENSE.txt for the license governing this code.
 import math
 from math import log
 
-import torch
+import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-try:
-    import n3net.shared_model.ops
-except:
-    pass
-    # import ops
+import n3net.shared_model.ops as ops
 
 r"""
 Shape parameters: B -> batch size, N -> number of database items
@@ -98,17 +94,18 @@ def aggregate_output(W,x,I, train=True):
 def log1mexp(x, expm1_guard = 1e-7):
     # See https://cran.r-project.org/package=Rmpfr/.../log1mexp-note.pdf
     t = x < math.log(0.5)
-    y = torch.zeros_like(x)
-    y[t] = torch.log1p(-x[t].exp())
+    not_t = th.logical_not(t)
+    y = th.zeros_like(x)
+    y[t] = th.log1p(-x[t].exp())
 
     # for x close to 0 we need expm1 for numerically stable computation
     # we furtmermore modify the backward pass to avoid instable gradients,
     # ie situations where the incoming output gradient is close to 0 and the gradient of expm1 is very large
-    expxm1 = torch.expm1(x[1 - t])
+    expxm1 = th.expm1(x[not_t])
     log1mexp_fw = (-expxm1).log()
     log1mexp_bw = (-expxm1+expm1_guard).log() # limits magnitude of gradient
 
-    y[1 - t] = log1mexp_fw.detach() + (log1mexp_bw - log1mexp_bw.detach())
+    y[not_t] = log1mexp_fw.detach() + (log1mexp_bw - log1mexp_bw.detach())
     return y
 
 
@@ -132,7 +129,7 @@ class NeuralNearestNeighbors(nn.Module):
         distance_bn = temp_opt.get("distance_bn")
 
         if not self.external_temp:
-            self.log_temp = nn.Parameter(torch.FloatTensor(1).fill_(0.0))
+            self.log_temp = nn.Parameter(th.FloatTensor(1).fill_(0.0))
         if distance_bn:
             self.bn = nn.BatchNorm1d(1)
         else:
@@ -179,7 +176,7 @@ class NeuralNearestNeighbors(nn.Module):
             logits = logits + log1mexp(weights.view(*logits.shape))
             # logits = logits + (1-weights_exp.view(*logits.shape)).log()
 
-        W = torch.stack(samples_arr,dim=3)
+        W = th.stack(samples_arr,dim=3)
 
         return W
 
@@ -319,7 +316,7 @@ class N3Aggregation2D(nn.Module):
         z = z.view(b,k*c,H,W)
 
         # Concat with input
-        z = torch.cat([y, z], dim=1)
+        z = th.cat([y, z], dim=1)
 
         return z
 
@@ -345,13 +342,13 @@ def index_neighbours(xe_patch, ye_patch, s, exclude_self=True):
     dev = xe_patch.get_device()
     key = "{}_{}_{}_{}_{}_{}_{}".format(n1,n2,m1,m2,s,exclude_self, dev)
     if not key in index_neighbours_cache:
-        I = torch.empty(1,m1*m2,o, device=dev, dtype=torch.int64)
+        I = th.empty(1,m1*m2,o, device=dev, dtype=th.int64)
 
-        ih = torch.tensor(range(s), device=dev, dtype=torch.int64).view(1,1,s,1)
-        iw = torch.tensor(range(s), device=dev, dtype=torch.int64).view(1,1,1,s)*n2
+        ih = th.tensor(range(s), device=dev, dtype=th.int64).view(1,1,s,1)
+        iw = th.tensor(range(s), device=dev, dtype=th.int64).view(1,1,1,s)*n2
 
-        i = torch.tensor(range(m1), device=dev, dtype=torch.int64).view(m1,1,1,1)
-        j = torch.tensor(range(m2), device=dev, dtype=torch.int64).view(1,m2,1,1)
+        i = th.tensor(range(m1), device=dev, dtype=th.int64).view(m1,1,1,1)
+        j = th.tensor(range(m2), device=dev, dtype=th.int64).view(1,m2,1,1)
 
         ch = (i-s//2).clamp(0,n1-s)
         cw = (j-s//2).clamp(0,n2-s)
@@ -365,8 +362,8 @@ def index_neighbours(xe_patch, ye_patch, s, exclude_self=True):
         I[0,:,:] = mI
         # I2 = I.clone()
 
-        # ih = torch.LongTensor(range(s)).view(s,1)
-        # iw = torch.LongTensor(range(s)).view(1,s)*n2
+        # ih = th.LongTensor(range(s)).view(s,1)
+        # iw = th.LongTensor(range(s)).view(1,s)*n2
         # for i in range(m1):
         #     for j in range(m2):
         #         midx = i*m2+j

@@ -19,6 +19,27 @@ import utils
 
 import models.n3net as n3net
 
+def create_network(args):
+    ninchannels=1
+    noutchannels=1
+
+    temp_opt = args.nl_temp
+
+    n3block_opt = dict(
+        k=args.nl_k,
+        patchsize=args.nl_patchsize,
+        stride=args.nl_stride,
+        temp_opt=temp_opt,
+        embedcnn_opt=args.embedcnn)
+
+    dncnn_opt = args.dncnn
+    dncnn_opt["residual"] = True
+
+    net = n3net.N3Net(ninchannels, noutchannels, args.nfeatures_interm,
+                      nblocks=args.ndncnn, block_opt=dncnn_opt, nl_opt=n3block_opt,
+                      residual=False)
+    return net
+
 class Experiment:
     def __init__(self, args):
         self.args = utils.parsed_args_to_obj(args)
