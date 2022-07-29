@@ -15,6 +15,10 @@ from torch.autograd import Variable
 
 import n3net.shared_model.ops as ops
 
+
+import dnls
+import numpy as np
+
 r"""
 Shape parameters: B -> batch size, N -> number of database items
     M -> number of query items, F -> feature channels of database/query items
@@ -42,6 +46,28 @@ def compute_distances(xe, ye, I, train=True):
     m = ye.shape[1]
     o = I.shape[2]
     train = False
+
+    # D_full = th.cdist(xe,ye)
+    # D = D_full.gather(dim=2, index=I)
+    print(I[0,0,:3])
+    # idx = I[0,0].cpu().numpy()
+    # args = np.unravel_index(idx,(25,25))
+    # print(args)
+    # vid= th.zeros((64,64))
+    # vid[args] = 1
+    # dnls.testing.data.save_burst(vid[None,None],"./output/","i00_map")
+    # print("I.shape: ",I.shape)
+
+    # idx = I[0,25*13+13].cpu().numpy()
+    # args = np.unravel_index(idx,(25,25))
+    # print(args)
+    # vid= th.zeros((64,64))
+    # vid[args] = 1
+    # dnls.testing.data.save_burst(vid[None,None],"./output/","imid_map")
+
+    # exit(0)
+
+    # return -D
 
     if not train:
         # xe_ind -> b m o e
@@ -86,8 +112,18 @@ def aggregate_output(W,x,I, train=True):
     m,o = I.shape[1:3]
     k = W.shape[3]
     # print(b,m,o,k,f,n)
+    # print("W.shape: ",W.shape)
+    # print("I.shape: ",I.shape)
+    # print(W[0,0,:,0])
 
-    z = ops.indexed_matmul_2_efficient(x, W,I)
+
+    # th.save(W,"w.pth")
+    # exit(0)
+    z = ops.indexed_matmul_2_efficient(x,W,I)
+    # print("z.shape: ",z.shape)
+    # print(z[0,0,:,0].view(8,10,10)[0,:3,:3])
+    # print(z[0,0,:,1].view(8,10,10)[0,:7,:7])
+    # print(z[0,0,:,-1].view(8,10,10)[0,:3,:3])
 
     return z
 
@@ -220,8 +256,14 @@ class N3AggregationBase(nn.Module):
         assert((b,m,o) == I.shape)
 
         # compute distance
+        # print(xe[0,0,:3])
+        # print(ye[0,0,:3])
+        # print(xe[0,0,10:15])
+        # print(ye[0,0,10:15])
+
         D = compute_distances(xe, ye, I, train=self.training)
         print("[orig] D: ",D[0,0,:5])
+        print("[orig] D: ",D[0,80,:5])
         print("D.shape: ",D.shape)
         print("log_temp.shape: ",log_temp.shape)
         assert((b,m,o) == D.shape)
@@ -277,6 +319,7 @@ class N3Aggregation2D(nn.Module):
         x_patch, padding = ops.im2patch(x, self.patchsize, self.stride, None, returnpadding=True)
         xe_patch = ops.im2patch(xe, self.patchsize, self.stride, self.padding)
         if y is None:
+            print("y is None.")
             y = x
             ye_patch = xe_patch
         else:
@@ -335,6 +378,7 @@ def index_neighbours(xe_patch, ye_patch, s, exclude_self=True):
     memory problems, though.
     """
     o = s**2
+    # print(s,o,exclude_self)
     if exclude_self:
         o-=1
     b,_,_,_,n1,n2 = xe_patch.shape

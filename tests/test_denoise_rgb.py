@@ -67,67 +67,7 @@ def pytest_generate_tests(metafunc):
 #
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-# @pytest.mark.skip()
 def test_original_refactored(sigma,ref_version):
-
-    # -- params --
-    device = "cuda:0"
-    # vid_set = "sidd_rgb"
-    # vid_name = "00"
-    # dset = "val"
-    vid_set = "set8"
-    vid_name = "motorbike"
-    verbose = False
-    isize = "128_128"
-    dset = "te"
-    # ref_version = "original"
-
-    # -- setup cfg --
-    cfg = edict()
-    cfg.dname = vid_set
-    cfg.vid_name = vid_name
-    cfg.isize = isize
-    cfg.sigma = 30.
-
-    # -- video --
-    data,loaders = data_hub.sets.load(cfg)
-    groups = data[dset].groups
-    indices = [i for i,g in enumerate(groups) if cfg.vid_name == g]
-    index = indices[0]
-
-    # -- unpack --
-    sample = data[dset][index]
-    region = sample['region']
-    noisy,clean = sample['noisy'],sample['clean']
-    noisy,clean = rslice_pair(noisy,clean,region)
-    noisy,clean = noisy.to(device),clean.to(device)
-    vid_frames = sample['fnums']
-    noisy /= 255.
-
-    # -- original exec --
-    og_model = n3net.original.load_model(sigma)
-    with th.no_grad():
-        deno_og = og_model(noisy.clone()).detach()
-
-    # -- refactored exec --
-    t,c,h,w = noisy.shape
-    region = None#[0,t,0,0,h,w] if ref_version == "ref" else None
-    ref_model = n3net.refactored.load_model(sigma,mode=ref_version,stride=8)
-    with th.no_grad():
-        deno_ref = ref_model(noisy,region=region).detach()
-
-    # -- viz --
-    if verbose:
-        print(deno_og[0,0,:3,:3])
-        print(deno_ref[0,0,:3,:3])
-
-    # -- test --
-    error = th.sum((deno_og - deno_ref)**2).item()
-    if verbose: print("error: ",error)
-    assert error < 1e-15
-
-
-def test_original_augmented(sigma,ref_version):
 
     # -- params --
     device = "cuda:0"

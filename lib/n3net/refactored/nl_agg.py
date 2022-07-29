@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 import dnls
+from dnls.utils.pads import comp_pads
 from n3net.utils.misc import get_flows
 from .non_local import NeuralNearestNeighbors
 
@@ -45,36 +46,72 @@ class N3AggregationBase(nn.Module):
         # -- compute distance --
         dists,inds = search(xe,qinds,ye)
         dists = -dists
-        print("[ref] D: ",dists[0,:5])
+        # print("dists.shape: ",dists.shape)
+        # print(dists[0])
+        print(th.where(th.abs(dists[0] + 0.1306)<1e-3))
+        print(th.where(th.abs(dists[0] + 0.2401)<1e-3))
+        print(th.where(th.abs(dists[0] + 0.3601)<1e-3))
+        print(th.where(th.abs(dists[0] + 0.5393)<1e-3))
+        print(th.where(th.abs(dists[0] + 0.6493)<1e-3))
+        # print("[ref] D: ",dists[0,:5])
+        # print("[ref] D: ",dists[80,:5])
+        # print("[ref] D.shape: ",dists.shape)
+        # dists,inds = remove_qinds(dists,inds,qinds)
+        # print(dists.shape)
+        # print(inds.shape)
 
         # -- log_temp patches --
+        ps = unfold.ps
         lt_patches = unfold(log_temp,qindex,nbatch_i)
         lt_patches = rearrange(lt_patches,'b 1 1 c h w -> b 1 (h w) c')
         if self.temp_opt["avgpool"]:
             lt_patches = lt_patches.mean(dim=2)
         else:
             lt_patches = lt_patches[:,:,lt_patches.shape[2]//2,:].contiguous()
+        print("lt_patches.shape: ",lt_patches.shape)
 
         # compute aggregation weights
         W = self.nnn(dists[None,:], log_temp=lt_patches)[0]
+        b = W.shape[0]
+        # print(W[0,:,0])
+        # W = th.load("w.pth")[0]
+        # print("W.shape: ",W.shape)
+        # b = W.shape[0]
+        # print("inds.shape: ",inds.shape)
+        # print("inds.shape: ",inds.shape)
 
         # -- weighted patch sum --
         z_patches = []
         for ki in range(self.k):
             W_ki = W[...,ki].contiguous()
             z_patches_ki = wpsum(x,W_ki,inds).view(qinds.shape[0],-1)
-            print("z_patches_ki.shape: ",z_patches_ki.shape)
+            z_patches_ki = z_patches_ki.view(b,-1,ps,ps)
+            # print("z_patches_ki.shape: ",z_patches_ki.shape)
             z_patches.append(z_patches_ki)
-        z_patches = th.stack(z_patches)
-        print("z_patches.shape: ",z_patches.shape)
+        z_patches = th.stack(z_patches,1)
+        # print("z_patches.shape: ",z_patches.shape)
+        # print(z_patches[0,0,0,:3,:3])
+        # print(z_patches[0,1,0,:7,:7])
+        # print(z_patches[0,-1,0,:3,:3])
+        # exit(0)
 
         # -- fold into video --
         ps = unfold.ps
-        shape_str = 'k b (c ph pw) -> b 1 1 (k c) ph pw'
+        shape_str = 'b k c ph pw -> b 1 1 (k c) ph pw'
         z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
         ones = th.ones_like(z_patches)
         fold(z_patches,qindex)
         wfold(ones,qindex)
+
+def remove_qinds(dists,inds,qinds):
+    q,k,_ = inds.shape
+    new_dists = th.zeros((q,k-1),device=inds.device,dtype=th.float32)
+    new_inds = th.zeros((q,k-1,3),device=inds.device,dtype=th.int32)
+    for qi in range(q):
+        not_q = th.where(th.abs(inds[qi] - qinds[qi]).sum(1) > 1e-10)
+        new_dists[qi][...] = dists[qi][not_q]
+        new_inds[qi][...] = inds[qi][not_q]
+    return new_dists,new_inds
 
 class N3Aggregation2D(nn.Module):
     r"""
@@ -136,43 +173,49 @@ class N3Aggregation2D(nn.Module):
         exact = False
         reflect_bounds = False
         rbounds = reflect_bounds
-        use_adj = False
+        use_adj = True
         adj = ps//2 if use_adj else 0
         use_k = False
-        use_search_abs = True
-        only_full = True
+        use_search_abs = False
+        full_ws = True
+        only_full = False
+        ws = 15
+        border_str = "reflect" if rbounds else "zero"
 
         # -- flows --
         fflow,bflow = get_flows(None,x.shape,x.device)
 
         # -- init fold --
-        unfold = dnls.iunfold.iUnfold(ps,coords,stride=stride,dilation=dil)
+        unfold = dnls.iunfold.iUnfold(ps,coords,stride=stride,dilation=dil,
+                                      adj=adj,border=border_str,only_full=only_full)
         fold = dnls.ifold.iFold(vshape,coords,stride=stride,dilation=dil,
                                 adj=adj,use_reflect=rbounds,only_full=only_full)
         wfold = dnls.ifold.iFold(vshape,coords,stride=stride,dilation=dil,
                                  adj=adj,use_reflect=rbounds,only_full=only_full)
 
         # -- init search --
-        # oh0,ow0,oh1,ow1 = 1,1,1,1
-        oh0,ow0,oh1,ow1 = 0,0,0,0
+        adj = ps//2 if use_adj else 0
+        # h0_off,w0_off,h1_off,w1_off = 1,1,1,1
+        h0_off,w0_off,h1_off,w1_off = 0,0,0,0
         get_batch = dnls.utils.inds.get_query_batch
-        search = dnls.xsearch.CrossSearchNl(fflow, bflow,
-                                            k, ps, pt, ws, wt, oh0, ow0, oh1, ow1,
-                                            chnls=-1,dilation=dil, stride=stride,
-                                            reflect_bounds=reflect_bounds,
-                                            use_search_abs=use_search_abs,
-                                            use_k=use_k,use_adj=use_adj,exact=exact)
+        search = dnls.search.SearchNl(fflow, bflow, -1, ps, pt, ws, wt,
+                                      chnls=-1,dilation=dil, stride=stride,
+                                      reflect_bounds=reflect_bounds,
+                                      search_abs=use_search_abs,
+                                      use_k=use_k,use_adj=use_adj,
+                                      full_ws=full_ws,exact=exact,
+                                      h0_off=h0_off,w0_off=w0_off,
+                                      h1_off=h1_off,w1_off=w1_off,
+                                      remove_self=True)
 
         # -- weighted patch sum --
-        h_off,w_off = 0,0#oh1,ow1
-        # if not(use_unfold): h_off,w_off = 0,0
-        adj,h_off,w_off = 0,0,0
+        h_off,w_off = 0,0
         wpsum = dnls.wpsum.WeightedPatchSum(ps, pt, h_off=h_off,w_off=w_off,
                                             dilation=dil, adj=adj, exact=exact,
                                             reflect_bounds=reflect_bounds)
 
         # -- batching --
-        rm_pix = dil*(ps-1)
+        rm_pix = dil*(ps-1) if only_full else dil*(ps//2-1)
         nh = (h - rm_pix - 1)//stride + 1
         nw = (w - rm_pix - 1)//stride + 1
         ntotal_t = nh * nw
@@ -210,6 +253,5 @@ class N3Aggregation2D(nn.Module):
         # Concat with input
         z = th.cat([y, z], dim=1)
         z = z[...,1:-1,1:-1].contiguous()
-
 
         return z
