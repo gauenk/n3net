@@ -7,8 +7,10 @@ Please see the file LICENSE.txt for the license governing this code.
 '''
 
 import math
+
 import torch.nn as nn
-from . import nl_agg
+
+from . import non_local
 
 def convnxn(in_planes, out_planes, kernelsize, stride=1, bias=False):
     padding = kernelsize//2
@@ -125,9 +127,8 @@ class N3Block(nn.Module):
     r"""
     N3Block operating on a 2D images
     """
-    def __init__(self, nplanes_in,
-                 k=7, patchsize=10, stride=1, dilation=1,
-                 ws=29, wt=0, pt=1, batch_size=None,
+    def __init__(self, nplanes_in, k, patchsize=10, stride=5,
+                 nl_match_window=15,
                  temp_opt={}, embedcnn_opt={}):
         r"""
         :param nplanes_in: number of input features
@@ -141,22 +142,14 @@ class N3Block(nn.Module):
         :param embedcnn_opt: options for the embedding cnn, also shared by temperature cnn
         """
         super(N3Block, self).__init__()
-
-        # -- init --
-        self.k = k
-        self.ps = patchsize
         self.patchsize = patchsize
-        self.pt = pt
         self.stride = stride
-        self.dilation = dilation
-        self.batch_size = batch_size
-        self.ws,self.wt = ws,wt
 
-        # -- patch embedding --
+        # patch embedding
         embedcnn_opt["nplanes_in"] = nplanes_in
         self.embedcnn = cnn_from_def(embedcnn_opt)
 
-        # -- temperature cnn --
+        # temperature cnn
         with_temp = temp_opt.get("external_temp")
         if with_temp:
             tempcnn_opt = dict(**embedcnn_opt)
@@ -165,16 +158,17 @@ class N3Block(nn.Module):
         else:
             self.tempcnn = None
 
-        # -- n3agg --
         self.nplanes_in = nplanes_in
         self.nplanes_out = (k+1) * nplanes_in
-        self.n3aggregation = nl_agg.N3Aggregation2D(
-            k=k, patchsize=patchsize, stride=stride, dilation=dilation,
-            ws=ws, wt=wt, pt=pt, batch_size=batch_size, temp_opt=temp_opt)
+
+        indexer = lambda xe_patch,ye_patch: non_local.index_neighbours(xe_patch, ye_patch, nl_match_window, exclude_self=True)
+        self.n3aggregation = non_local.N3Aggregation2D(indexing=indexer, k=k,
+                patchsize=patchsize, stride=stride, temp_opt=temp_opt)
+        self.k = k
 
         self.reset_parameters()
 
-    def forward(self, x, flows):
+    def forward(self, x):
         if self.k <= 0:
             return x
 
@@ -187,7 +181,7 @@ class N3Block(nn.Module):
         else:
             log_temp = None
 
-        x = self.n3aggregation(xg,xe,ye,None,log_temp,flows)
+        x = self.n3aggregation(xg,xe,ye,log_temp=log_temp)
         return x
 
     def reset_parameters(self):
@@ -199,11 +193,7 @@ class N3Net(nn.Module):
     r"""
     A N3Net interleaves DnCNNS for local processing with N3Blocks for non-local processing
     """
-    def __init__(self, nplanes_in, nplanes_out, nplanes_interm, nblocks,
-                 residual, block_opt, nl_temp_opt, embedcnn_opt,
-                 ws=29, wt=0, k=7, stride=5, dilation=1,
-                 patchsize=10, pt=1, batch_size=None):
-
+    def __init__(self, nplanes_in, nplanes_out, nplanes_interm, nblocks, block_opt, nl_opt, residual=False):
         r"""
         :param nplanes_in: number of input features
         :param nplanes_out: number of output features
@@ -224,10 +214,7 @@ class N3Net(nn.Module):
         nls = []
         for i in range(nblocks-1):
             cnns.append(DnCNN(nin, nplanes_interm, **block_opt))
-            nl = N3Block(nplanes_interm,k=k,patchsize=patchsize,
-                         stride=stride,dilation=dilation,
-                         ws=ws,wt=wt,pt=pt,batch_size=batch_size,
-                         temp_opt=nl_temp_opt, embedcnn_opt=embedcnn_opt)
+            nl = N3Block(nplanes_interm, **nl_opt)
             nin = nl.nplanes_out
             nls.append(nl)
 
@@ -237,11 +224,11 @@ class N3Net(nn.Module):
         self.nls = nn.Sequential(*nls)
         self.blocks = nn.Sequential(*cnns)
 
-    def forward(self, x, flows=None):
+    def forward(self, x):
         shortcut = x
         for i in range(self.nblocks-1):
             x = self.blocks[i](x)
-            x = self.nls[i](x, flows)
+            x = self.nls[i](x)
 
         x = self.blocks[-1](x)
 

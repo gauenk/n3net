@@ -34,6 +34,11 @@ def load_model_deno(sigma,**kwargs):
     ndncnn = optional(kwargs,"ndcnn",3)
     ntype =  optional(kwargs,"ntype","gaussian")
 
+    # -- non-local --
+    nl_k = optional(kwargs,'nl_k',7)
+    nl_ps = optional(kwargs,'nl_patchsize',10)
+    nl_stride = optional(kwargs,'nl_stride',5)
+
     # -- non-local [temp] --
     nl_temp_avgpool = optional(kwargs,'nl_temp_avgpool',"true") == "true"
     nl_temp_distance_bn = optional(kwargs,'nl_temp_distance_bn',"true") == "true"
@@ -54,6 +59,13 @@ def load_model_deno(sigma,**kwargs):
     embedcnn_nplanes_out = optional(kwargs,"embedcnn_nplanes_out",8)
     embedcnn_bn = optional(kwargs,"embedcnn_bn","true") == "true"
 
+    # -- relevant configs --
+    fwd_mode = optional(kwargs,'fwd_mode',"dnls_k")
+    ws = optional(kwargs,'ws',-1)
+    wt = optional(kwargs,'wt',0)
+    k = optional(kwargs,'k',-1)
+    sb = optional(kwargs,'sb',None)
+
     # -- args --
     ninchannels=1
     noutchannels=1
@@ -68,6 +80,12 @@ def load_model_deno(sigma,**kwargs):
         kernel      = embedcnn_kernel,
         nplanes_out = embedcnn_nplanes_out,
         bn          = embedcnn_bn)
+    n3block_opt = dict(
+        k=nl_k,
+        patchsize=nl_ps,
+        stride=nl_stride,
+        temp_opt=nl_temp_opt,
+        embedcnn_opt=embedcnn_opt)
     dncnn_opt = dict(
         bn = dncnn_bn,
         depth = dncnn_depth,
@@ -75,22 +93,10 @@ def load_model_deno(sigma,**kwargs):
         kernel = dncnn_kernel,
         residual = True)
 
-    # -- non-local options --
-    k = optional(kwargs,'k',7)
-    pt = optional(kwargs,'pt',1)
-    ps = optional(kwargs,'ps',10)
-    stride = optional(kwargs,'stride',5)
-    dilation = optional(kwargs,'dilation',1)
-    ws = optional(kwargs,'ws',-1)
-    wt = optional(kwargs,'wt',0)
-    batch_size = optional(kwargs,'bs',None)
-    residual = False
-
-    # -- declare model --
-    model = N3Net(ninchannels, noutchannels, nfeatures_interm, ndncnn,
-                  residual, dncnn_opt, nl_temp_opt, embedcnn_opt,
-                  ws=ws, wt=wt, k=k, stride=stride, dilation=dilation,
-                  patchsize=ps, pt=pt, batch_size=batch_size)
+    # -- init model --
+    model = N3Net(ninchannels, noutchannels, nfeatures_interm,
+                  nblocks=ndncnn, block_opt=dncnn_opt,
+                  nl_opt=n3block_opt, residual=False)
     model = model.to(device)
 
     # -- load weights --
