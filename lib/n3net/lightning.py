@@ -164,7 +164,7 @@ class N3NetLit(pl.LightningModule):
         gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
         with th.no_grad():
             deno = self.forward(noisy)
-        mem_gb = gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
+        _,mem_gb = gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
 
         # -- loss --
         loss = th.mean((clean - deno)**2)
@@ -191,7 +191,7 @@ class N3NetLit(pl.LightningModule):
         gpu_mem.print_peak_gpu_stats(False,"test",reset=True)
         with th.no_grad():
             deno = self.forward(noisy)
-        mem_gb = gpu_mem.print_peak_gpu_stats(False,"test",reset=True)
+        _,mem_gb = gpu_mem.print_peak_gpu_stats(False,"test",reset=True)
 
         # -- compare --
         loss = th.mean((clean - deno)**2)

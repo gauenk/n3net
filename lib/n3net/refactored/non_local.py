@@ -176,7 +176,7 @@ class NeuralNearestNeighbors(nn.Module):
             logits = logits + log1mexp(weights.view(*logits.shape))
             # logits = logits + (1-weights_exp.view(*logits.shape)).log()
 
-        W = th.stack(samples_arr,dim=3)
+        W = th.stack(samples_arr,dim=1)
 
         return W
 

@@ -46,7 +46,7 @@ def run_exp(cfg):
     loader = iter(loaders.te)
 
     # -- network --
-    model = n3net.get_deno_model(cfg.model_name,cfg.sigma,cfg.device)
+    model = n3net.get_deno_model(cfg.model_name,cfg.sigma,cfg)
     model.eval()
 
     # -- for each batch --
@@ -63,6 +63,7 @@ def run_exp(cfg):
 
         # -- onto cuda --
         noisy,clean = noisy.to(cfg.device),clean.to(cfg.device)
+        print("noisy.shape: ",noisy.shape)
 
         # -- normalize images --
         sigma = cfg.sigma/255.
@@ -153,15 +154,15 @@ def main():
     cache_dir = ".cache_io"
     cache_name = "test_rgb_img" # current!
     cache = cache_io.ExpCache(cache_dir,cache_name)
-    cache.clear()
+    # cache.clear()
 
     # -- get mesh --
-    model_names = ["original"]#,"refactored"]
+    model_names = ["original","refactored"]
     dnames = ["urban100"]
-    sigmas = [25,50,70]
+    sigmas = [25]#,50,70]
     internal_adapt_nsteps = [0]
     internal_adapt_nepochs = [5]
-    ws,wt = [29],[0]
+    ws,wt = [15],[0]
     comp_flow = ["false"]
     exp_lists = {"sigma":sigmas,"dname":dnames,"model_name":model_names,
                  "internal_adapt_nsteps":internal_adapt_nsteps,
@@ -187,7 +188,8 @@ def main():
 
         # -- logic --
         uuid = cache.get_uuid(exp) # assing ID to each Dict in Meshgrid
-        # if exp.dname in ["set12","urban100"]: cache.clear_exp(uuid)
+        if exp.model_name in ["refactored"]: cache.clear_exp(uuid)
+        # if True: cache.clear_exp(uuid)
         results = cache.load_exp(exp) # possibly load result
         if results is None: # check if no result
             exp.uuid = uuid

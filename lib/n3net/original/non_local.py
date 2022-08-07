@@ -49,7 +49,7 @@ def compute_distances(xe, ye, I, train=True):
 
     # D_full = th.cdist(xe,ye)
     # D = D_full.gather(dim=2, index=I)
-    print(I[0,0,:3])
+    # print(I[0,0,:3])
     # idx = I[0,0].cpu().numpy()
     # args = np.unravel_index(idx,(25,25))
     # print(args)
@@ -262,10 +262,10 @@ class N3AggregationBase(nn.Module):
         # print(ye[0,0,10:15])
 
         D = compute_distances(xe, ye, I, train=self.training)
-        print("[orig] D: ",D[0,0,:5])
-        print("[orig] D: ",D[0,80,:5])
-        print("D.shape: ",D.shape)
-        print("log_temp.shape: ",log_temp.shape)
+        # print("[orig] D: ",D[0,0,:5])
+        # print("[orig] D: ",D[0,80,:5])
+        # print("D.shape: ",D.shape)
+        # print("log_temp.shape: ",log_temp.shape)
         assert((b,m,o) == D.shape)
 
         # compute aggregation weights
@@ -319,7 +319,7 @@ class N3Aggregation2D(nn.Module):
         x_patch, padding = ops.im2patch(x, self.patchsize, self.stride, None, returnpadding=True)
         xe_patch = ops.im2patch(xe, self.patchsize, self.stride, self.padding)
         if y is None:
-            print("y is None.")
+            # print("y is None.")
             y = x
             ye_patch = xe_patch
         else:
@@ -343,7 +343,7 @@ class N3Aggregation2D(nn.Module):
         if log_temp is not None:
             log_temp_patch = ops.im2patch(log_temp, self.patchsize, self.stride, self.padding)
             log_temp_patch = log_temp_patch.permute(0,4,5,2,3,1).contiguous().view(b,m,self.patchsize**2, log_temp.shape[1])
-            print(log_temp_patch.shape)
+            # print(log_temp_patch.shape)
             if self.temp_opt["avgpool"]:
                 log_temp_patch = log_temp_patch.mean(dim=2)
             else:

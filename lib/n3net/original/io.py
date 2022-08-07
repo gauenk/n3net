@@ -17,54 +17,54 @@ from .n3net import N3Net
 from n3net.utils.misc import optional
 from n3net.utils.model_utils import load_checkpoint,select_sigma,get_model_weights
 
-def load_model(mtype,sigma,**kwargs):
+def load_model(mtype,sigma,cfg=None):
     if mtype == "denoising":
-        return load_model_deno(sigma,**kwargs)
+        return load_model_deno(sigma,cfg)
     elif mtype == "sr":
         raise NotImplementedError("")
     else:
         raise ValueError("")
 
-def load_model_deno(sigma,**kwargs):
+def load_model_deno(sigma,cfg):
 
     # -- misc --
-    device = optional(kwargs,'device','cuda:0')
-    patchsize = optional(kwargs,'patchsize',80)
-    nfeatures_interm = optional(kwargs,"nfeatures_interm",8)
-    ndncnn = optional(kwargs,"ndcnn",3)
-    ntype =  optional(kwargs,"ntype","gaussian")
+    device = optional(cfg,'device','cuda:0')
+    patchsize = optional(cfg,'patchsize',80)
+    nfeatures_interm = optional(cfg,"nfeatures_interm",8)
+    ndncnn = optional(cfg,"ndcnn",3)
+    ntype =  optional(cfg,"ntype","gaussian")
 
     # -- non-local --
-    nl_k = optional(kwargs,'nl_k',7)
-    nl_ps = optional(kwargs,'nl_patchsize',10)
-    nl_stride = optional(kwargs,'nl_stride',5)
+    nl_k = optional(cfg,'nl_k',7)
+    nl_ps = optional(cfg,'nl_patchsize',10)
+    nl_stride = optional(cfg,'nl_stride',5)
 
     # -- non-local [temp] --
-    nl_temp_avgpool = optional(kwargs,'nl_temp_avgpool',"true") == "true"
-    nl_temp_distance_bn = optional(kwargs,'nl_temp_distance_bn',"true") == "true"
-    nl_temp_external_temp = optional(kwargs,'nl_temp_external_temp',"true") == "true"
-    nl_temp_temp_bias = optional(kwargs,'nl_temp_temp_bias',0.1)
+    nl_temp_avgpool = optional(cfg,'nl_temp_avgpool',"true") == "true"
+    nl_temp_distance_bn = optional(cfg,'nl_temp_distance_bn',"true") == "true"
+    nl_temp_external_temp = optional(cfg,'nl_temp_external_temp',"true") == "true"
+    nl_temp_temp_bias = optional(cfg,'nl_temp_temp_bias',0.1)
 
 
     # -- dncnn --
-    dncnn_bn = optional(kwargs,"dncnn_bn","true") == "true"
-    dncnn_depth = optional(kwargs,"dncnn_depth",6)
-    dncnn_kernel = optional(kwargs,"dncnn_kernel",3)
-    dncnn_features = optional(kwargs,"dncnn_features",64)
+    dncnn_bn = optional(cfg,"dncnn_bn","true") == "true"
+    dncnn_depth = optional(cfg,"dncnn_depth",6)
+    dncnn_kernel = optional(cfg,"dncnn_kernel",3)
+    dncnn_features = optional(cfg,"dncnn_features",64)
 
     # -- embedding --
-    embedcnn_features = optional(kwargs,"embedcnn_features",64)
-    embedcnn_depth = optional(kwargs,"embedcnn_depth",3)
-    embedcnn_kernel = optional(kwargs,"embedcnn_kernel",3)
-    embedcnn_nplanes_out = optional(kwargs,"embedcnn_nplanes_out",8)
-    embedcnn_bn = optional(kwargs,"embedcnn_bn","true") == "true"
+    embedcnn_features = optional(cfg,"embedcnn_features",64)
+    embedcnn_depth = optional(cfg,"embedcnn_depth",3)
+    embedcnn_kernel = optional(cfg,"embedcnn_kernel",3)
+    embedcnn_nplanes_out = optional(cfg,"embedcnn_nplanes_out",8)
+    embedcnn_bn = optional(cfg,"embedcnn_bn","true") == "true"
 
     # -- relevant configs --
-    fwd_mode = optional(kwargs,'fwd_mode',"dnls_k")
-    ws = optional(kwargs,'ws',-1)
-    wt = optional(kwargs,'wt',0)
-    k = optional(kwargs,'k',-1)
-    sb = optional(kwargs,'sb',None)
+    fwd_mode = optional(cfg,'fwd_mode',"dnls_k")
+    ws = optional(cfg,'ws',-1)
+    wt = optional(cfg,'wt',0)
+    k = optional(cfg,'k',-1)
+    sb = optional(cfg,'sb',None)
 
     # -- args --
     ninchannels=1

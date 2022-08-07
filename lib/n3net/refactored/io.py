@@ -17,15 +17,15 @@ from .n3net import N3Net
 from n3net.utils.misc import optional
 from n3net.utils.model_utils import load_checkpoint,select_sigma,get_model_weights
 
-def load_model(mtype,sigma,**kwargs):
+def load_model(mtype,sigma,cfg=None):
     if mtype == "denoising":
-        return load_model_deno(sigma,**kwargs)
+        return load_model_deno(sigma,cfg)
     elif mtype == "sr":
         raise NotImplementedError("")
     else:
         raise ValueError("")
 
-def load_model_deno(sigma,**kwargs):
+def load_model_deno(sigma,kwargs):
 
     # -- misc --
     device = optional(kwargs,'device','cuda:0')
@@ -87,6 +87,7 @@ def load_model_deno(sigma,**kwargs):
     residual = False
 
     # -- declare model --
+    print(ws,wt,k,stride,dilation,ps,pt,batch_size)
     model = N3Net(ninchannels, noutchannels, nfeatures_interm, ndncnn,
                   residual, dncnn_opt, nl_temp_opt, embedcnn_opt,
                   ws=ws, wt=wt, k=k, stride=stride, dilation=dilation,
