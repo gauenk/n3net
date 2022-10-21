@@ -18,7 +18,6 @@ def default_test_vid_cfg():
     cfg.frame_end = 0
     cfg.saved_dir = "./output/saved_results/"
     cfg.checkpoint_dir = "/home/gauenk/Documents/packages/n3net/output/checkpoints/"
-    cfg.isize = "128_128"#None
     cfg.num_workers = 1
     cfg.device = "cuda:0"
     cfg.mtype = "gray"
@@ -59,3 +58,6 @@ def set_seed(seed):
     random.seed(seed)
     th.manual_seed(seed)
     np.random.seed(seed)
+
+
+

@@ -7,8 +7,10 @@ Please see the file LICENSE.txt for the license governing this code.
 '''
 
 import math
+import torch as th
 import torch.nn as nn
 from . import nl_agg
+from n3net.utils.model_utils import temporal_chop
 
 def convnxn(in_planes, out_planes, kernelsize, stride=1, bias=False):
     padding = kernelsize//2
@@ -172,18 +174,28 @@ class N3Block(nn.Module):
             k=k, patchsize=patchsize, stride=stride, dilation=dilation,
             ws=ws, wt=wt, pt=pt, batch_size=batch_size, temp_opt=temp_opt)
 
+        self.tsize = 10
         self.reset_parameters()
 
     def forward(self, x, flows):
         if self.k <= 0:
             return x
 
-        xe = self.embedcnn(x)
-        ye = xe
+        # print("x.shape: ",x.shape)
+        # -- temporal chop if needed [not search's fault; batch-norm's ;) ] --
+        nframes = x.shape[0]
+        if nframes > self.tsize:
+            xe = temporal_chop(x,self.tsize,self.embedcnn)
+        else:
+            xe = self.embedcnn(x)
 
+        ye = xe
         xg = x
         if self.tempcnn is not None:
-            log_temp = self.tempcnn(x)
+            if nframes > self.tsize:
+                log_temp = temporal_chop(x,self.tsize,self.tempcnn)
+            else:
+                log_temp = self.tempcnn(x)
         else:
             log_temp = None
 
@@ -218,6 +230,7 @@ class N3Net(nn.Module):
         self.nplanes_out = nplanes_out
         self.nblocks = nblocks
         self.residual = residual
+        self.tsize = 10
 
         nin = nplanes_in
         cnns = []
@@ -241,7 +254,11 @@ class N3Net(nn.Module):
         print("refactored.")
         shortcut = x
         for i in range(self.nblocks-1):
-            x = self.blocks[i](x)
+            nframes = x.shape[0]
+            if nframes > self.tsize:
+                x = temporal_chop(x,self.tsize,self.blocks[i])
+            else:
+                x = self.blocks[i](x)
             x = self.nls[i](x, flows)
 
         x = self.blocks[-1](x)
@@ -251,3 +268,4 @@ class N3Net(nn.Module):
             x[:,:nshortcut,:,:] = x[:,:nshortcut,:,:] + shortcut[:,:nshortcut,:,:]
 
         return x
+

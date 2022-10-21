@@ -224,7 +224,7 @@ class N3Net(nn.Module):
         self.nls = nn.Sequential(*nls)
         self.blocks = nn.Sequential(*cnns)
 
-    def forward(self, x):
+    def forward(self, x, flows=None): # flows_is_none
         print("original.")
         shortcut = x
         for i in range(self.nblocks-1):

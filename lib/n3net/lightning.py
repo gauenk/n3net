@@ -19,7 +19,8 @@ import dnls
 import data_hub
 
 # -- optical flow --
-import svnlb
+# import svnlb
+from n3net import flow
 import skimage
 
 # -- network --
@@ -86,14 +87,8 @@ class N3NetLit(pl.LightningModule):
 
     def _get_flow(self,vid):
         if self.flow == True:
-            noisy_np = vid.cpu().numpy()
-            if noisy_np.shape[1] == 1:
-                noisy_np = np.repeat(noisy_np,3,axis=1)
-            sigma_est = skimage.restoration.estimate_sigma(noisy_np,average_sigmas=True,
-                                                           multichannel=True,
-                                                           channel_axis=1)
-            flows = svnlb.compute_flow(noisy_np,sigma_est)
-            flows = edict({k:th.from_numpy(v).to(self.device) for k,v in flows.items()})
+            sigma_est = flow.est_sigma(noisy[0])
+            flows = flow.run_batch(noisy,sigma_est)
         else:
             t,c,h,w = vid.shape
             zflows = th.zeros((t,2,h,w)).to(self.device)

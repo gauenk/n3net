@@ -76,3 +76,20 @@ def get_model_weights(fdir,data_sigma,ntype):
     return str(mdir_full)
 
 
+
+def temporal_chop(x,tsize,fwd_fxn,flows=None):
+    nframes = x.shape[0]
+    nslice = (nframes-1)//tsize+1
+    x_agg = []
+    for ti in range(nslice):
+        ts = ti*tsize
+        te = min((ti+1)*tsize,nframes)
+        tslice = slice(ts,te)
+        if flows:
+            x_t = fwd_fxn(x[tslice],flows)
+        else:
+            x_t = fwd_fxn(x[tslice])
+        x_agg.append(x_t)
+    x_agg = th.cat(x_agg)
+    return x_agg
+

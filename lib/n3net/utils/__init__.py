@@ -8,3 +8,5 @@ from . import timer
 from . import gpu_mem
 from . import misc
 from . import metrics
+from . import proc_utils
+from . import color

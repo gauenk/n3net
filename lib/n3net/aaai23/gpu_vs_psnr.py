@@ -1,6 +1,4 @@
 
-
-
 # -- misc --
 import os,math,tqdm
 import pprint
@@ -35,36 +33,48 @@ def default_cfg():
     cfg.seed = 123
     return cfg
 
-def load_intro(cfg):
+def append_detailed_cfg(cfg):
+    # -- add to cfg --
+    cfg.adapt_mtype = "rand"
+    cfg.internal_adapt_nsteps = 300
+    cfg.internal_adapt_nepochs = 0
+    cfg.ws = 15
+    cfg.wt = 3
+    cfg.bs = 32#256#64*1024 # 128*1024
+    cfg.bw = True
+    cfg.k = 7
+    cfg.stride = 5
+    def_cfg = default_cfg()
+    cfg_l = [cfg]
+    cache_io.append_configs(cfg_l,def_cfg) # merge the two
+    return cfg_l[0]
+
+def load_proposed(cfg,use_train="false",flow="true"):
+    mtype = "refactored"
+    return load_results(cfg,mtype,flow,use_train)
+
+def load_original(cfg):
+    mtype = "original"
+    use_train= "false"
+    flow = "false"
+    return load_results(cfg,mtype,flow,use_train)
+
+def load_results(cfg,mtype,flow,use_train):
 
     # -- get cache --
     lidia_home = Path(__file__).parents[0] / "../../../"
     cache_dir = str(lidia_home / ".cache_io")
     cache_name = "test_rgb_net" # current!
     cache = cache_io.ExpCache(cache_dir,cache_name)
+    cfg = append_detailed_cfg(cfg)
 
-    # -- add to cfg --
-    cfg.nframes = 10
-    cfg.frame_start = 10
-    cfg.frame_end = cfg.frame_start + cfg.nframes - 1
-    cfg.adapt_mtype = "rand"
-    cfg.internal_adapt_nsteps = 300
-    cfg.internal_adapt_nepochs = 0
-    cfg.ws = 15
-    cfg.wt = 3
-    cfg.bs = 256#64*1024 # 128*1024
-    cfg.bw = True
-    cfg.k = 7
-    cfg.stride = 5
-    cfg.isize = "256_256"
-    cfg.model_name = "refactored"
-    cfg.use_train = "false"
-    cfg.flow = "true"
-    def_cfg = default_cfg()
-    cfg_l = [cfg]
-    cache_io.append_configs(cfg_l,def_cfg) # merge the two
+    # -- config --
+    cfg.flow = flow
+    cfg.model_name = mtype
+    cfg.use_train = use_train
 
     # -- load results --
-    # pp.pprint(cfg_l[0])
+    cfg_l = [cfg]
+    pp.pprint(cfg_l[0])
     records = cache.load_flat_records(cfg_l)
     return records

@@ -44,7 +44,8 @@ class N3AggregationBase(nn.Module):
         """
 
         # -- compute distance --
-        dists,inds = search(xe,qindex,nbatch_i,ye)
+        dists,inds = search(xe[None,:],qindex,nbatch_i,ye[None,:])
+        # dists,inds = dists[0],inds[0]
         dists = -dists
         # print("dists.shape: ",dists.shape)
         # print(dists[0])
@@ -70,17 +71,10 @@ class N3AggregationBase(nn.Module):
             lt_patches = lt_patches[:,:,lt_patches.shape[2]//2,:].contiguous()
         # print("lt_patches.shape: ",lt_patches.shape)
 
-        # compute aggregation weights
-        W = self.nnn(dists[None,:], log_temp=lt_patches)[0]
-        # W = rearrange(W,'b k h -> h b k').contiguous()
-        # W = W.permute(2,0,1)
+        # -- compute aggregation weights --
+        dists = dists[None,:]
+        W = self.nnn(dists, log_temp=lt_patches)[0]
         nheads,b,_ = W.shape
-        # print(W[0,:,0])
-        # W = th.load("w.pth")[0]
-        # print("W.shape: ",W.shape)
-        # b = W.shape[0]
-        # print("inds.shape: ",inds.shape)
-        # print("inds.shape: ",inds.shape)
 
         # -- weighted patch sum --
         # z_patches = []
@@ -95,7 +89,10 @@ class N3AggregationBase(nn.Module):
         c = x.shape[1]
         ps = wpsum.ps
         # z_patches = th.zeros((b,self.k,c,ps,ps),device=W.device,dtype=th.float32)
-        z_patches = wpsum(x,W,inds) # b self.k c h w
+        print("x.shape ",x.shape)
+        print("W.shape: ",W.shape)
+        z_patches = wpsum(x[None,:],W[None,:],inds[None,:]) # b self.k c h w
+        z_patches = z_patches[0]
 
         # z_patches = repeat(z_patches,'b 1 c h w -> b k c h w',k=self.k)
         # print("z_patches.shape: ",z_patches.shape)
@@ -109,7 +106,7 @@ class N3AggregationBase(nn.Module):
         shape_str = 'b k c ph pw -> b 1 1 (k c) ph pw'
         z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
         # ones = th.ones_like(z_patches)
-        fold(z_patches,qindex)
+        fold(z_patches[None,:],qindex)
         # wfold(ones,qindex)
 
 class N3Aggregation2D(nn.Module):
@@ -174,20 +171,23 @@ class N3Aggregation2D(nn.Module):
         rbounds = reflect_bounds
         use_adj = True
         adj = ps//2 if use_adj else 0
-        use_k = False
+        # k_search = -1
+        k_search = 224
+        use_k = not(k_search == -1)
         use_search_abs = False
         full_ws = True
         only_full = False
         border_str = "reflect" if rbounds else "zero"
         # print("in: ",ws,wt,k,stride,dil,ps,pt,self.batch_size)
+        # print("stride: " ,stride)
 
         # -- flows --
-        fflow,bflow = get_flows(None,x.shape,x.device)
+        fflow,bflow = get_flows(flows,(1,)+x.shape,x.device)
 
         # -- init fold --
         unfold = dnls.iUnfold(ps,coords,stride=stride,dilation=dil,
                               adj=adj,border=border_str,only_full=only_full)
-        fold = dnls.iFoldz(vshape,coords,stride=stride,dilation=dil,
+        fold = dnls.iFoldz((1,)+vshape,coords,stride=stride,dilation=dil,
                           adj=adj,use_reflect=rbounds,only_full=only_full)
 
         # -- init search --
@@ -195,7 +195,8 @@ class N3Aggregation2D(nn.Module):
         # h0_off,w0_off,h1_off,w1_off = 1,1,1,1
         h0_off,w0_off,h1_off,w1_off = 0,0,0,0
         get_batch = dnls.utils.inds.get_query_batch
-        search = dnls.search.init("l2_with_index",fflow, bflow, -1, ps, pt, ws, wt,
+        search = dnls.search.init("l2_with_index",fflow, bflow, k_search,
+                                  ps, pt, ws, wt,
                                   chnls=-1,dilation=dil,
                                   stride0=stride,stride1=stride,
                                   reflect_bounds=reflect_bounds,
@@ -229,11 +230,15 @@ class N3Aggregation2D(nn.Module):
         # -- aggregation --
         if self.aggregation is None:
             return y if y is not None else x
+        # print("x.shape: ",x.shape)
+        # print("xe.shape: ",xe.shape)
+        # print("ye.shape: ",ye.shape)
 
         # -- run for batches --
         for batch in range(nbatches):
 
             # -- batch info --
+            # print(batch)
             qindex = min(nbatch * batch,ntotal)
             nbatch_i =  min(nbatch, ntotal - qindex)
 
@@ -246,7 +251,7 @@ class N3Aggregation2D(nn.Module):
                              qindex,nbatch_i)
 
         # -- final steps --
-        vid,zvid = fold.vid,fold.zvid
+        vid,zvid = fold.vid[0],fold.zvid[0]
         z = fold.vid / (zvid+1e-10)
         z = z.contiguous().view(t,k,c,h,w)
         z = z-y.view(t,1,c,h,w)

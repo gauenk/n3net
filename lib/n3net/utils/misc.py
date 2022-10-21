@@ -56,8 +56,8 @@ def get_flows(flows,vshape,device):
     return fflow,bflow
 
 def empty_flow(vshape,device):
-    t,c,h,w = vshape
-    return th.zeros((t,2,h,w),device=device)
+    b,t,c,h,w = vshape
+    return th.zeros((b,t,2,h,w),device=device)
 
 def full2blocks(img,blocks):
     one,c,h,w = img.shape

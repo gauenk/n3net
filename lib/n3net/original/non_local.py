@@ -115,6 +115,7 @@ def aggregate_output(W,x,I, train=True):
     # print("W.shape: ",W.shape)
     # print("I.shape: ",I.shape)
     # print(W[0,0,:,0])
+    # print("agg.")
 
 
     # th.save(W,"w.pth")
@@ -269,12 +270,15 @@ class N3AggregationBase(nn.Module):
         assert((b,m,o) == D.shape)
 
         # compute aggregation weights
+        # print("D.shape: ",D.shape)
         W = self.nnn(D, log_temp=log_temp)
+        # print("W.shape: ",W.shape)
 
         assert((b,m,o,k) == W.shape)
         # aggregate output
         z = aggregate_output(W, x, I, train=self.training)
         assert((b,m,f,k) == z.shape)
+        # print("z.shape: ",z.shape)
 
         return z
 
