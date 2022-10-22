@@ -47,19 +47,6 @@ class N3AggregationBase(nn.Module):
         dists,inds = search(xe[None,:],qindex,nbatch_i,ye[None,:])
         dists,inds = dists[0],inds[0]
         dists = -dists
-        print("dists.shape: ",dists.shape)
-        # print(dists[0])
-        # print(th.where(th.abs(dists[0] + 0.1306)<1e-3))
-        # print(th.where(th.abs(dists[0] + 0.2401)<1e-3))
-        # print(th.where(th.abs(dists[0] + 0.3601)<1e-3))
-        # print(th.where(th.abs(dists[0] + 0.5393)<1e-3))
-        # print(th.where(th.abs(dists[0] + 0.6493)<1e-3))
-        # print("[ref] D: ",dists[0,:5])
-        # print("[ref] D: ",dists[80,:5])
-        # print("[ref] D.shape: ",dists.shape)
-        # dists,inds = remove_qinds(dists,inds,qinds)
-        # print(dists.shape)
-        # print(inds.shape)
 
         # -- log_temp patches --
         ps = unfold.ps
@@ -75,33 +62,9 @@ class N3AggregationBase(nn.Module):
         dists = dists[None,:]
         W = self.nnn(dists, log_temp=lt_patches)[0]
         nheads,b,_ = W.shape
-
-        # -- weighted patch sum --
-        # z_patches = []
-        # for ki in range(1):#self.k):
-        #     W_ki = W[...,ki].contiguous()
-        #     z_patches_ki = wpsum(x,W_ki,inds).view(b,-1)
-        #     z_patches_ki = z_patches_ki.view(b,-1,ps,ps)
-        #     # print("z_patches_ki.shape: ",z_patches_ki.shape)
-        #     z_patches.append(z_patches_ki)
-        # z_patches = th.stack(z_patches,1)
-
         c = x.shape[-3]
         ps = wpsum.ps
-        # z_patches = th.zeros((b,self.k,c,ps,ps),device=W.device,dtype=th.float32)
-        # print("x.shape ",x.shape)
-        # print("W.shape: ",W.shape)
-        # print("inds.shape: " ,inds.shape)
         z_patches = wpsum(x[None,:],W[None,:],inds[None,:]) # b self.k c h w
-        # print("z_patches.shape:" ,z_patches.shape)
-        # print(z_patches[0,0,:,0,0])
-
-        # z_patches = repeat(z_patches,'q 1 c h w -> q k c h w',k=self.k)
-        # print("z_patches.shape: ",z_patches.shape)
-        # print(z_patches[0,0,0,:3,:3])
-        # print(z_patches[0,1,0,:7,:7])
-        # print(z_patches[0,-1,0,:3,:3])
-        # exit(0)
 
         # -- fold into video --
         ps = unfold.ps
@@ -166,7 +129,6 @@ class N3Aggregation2D(nn.Module):
         stride = self.stride
         ps,k = self.patchsize,self.k
         ws,wt,pt = self.ws,self.wt,self.pt
-        print("ws,ps: ",ws,ps)
         exact = False
         reflect_bounds = False
         rbounds = reflect_bounds
@@ -179,8 +141,6 @@ class N3Aggregation2D(nn.Module):
         full_ws = True
         only_full = False
         border_str = "reflect" if rbounds else "zero"
-        # print("in: ",ws,wt,k,stride,dil,ps,pt,self.batch_size)
-        # print("stride: " ,stride)
 
         # -- flows --
         fflow,bflow = get_flows(flows,(1,)+x.shape,x.device)
@@ -215,7 +175,6 @@ class N3Aggregation2D(nn.Module):
                                                     reflect_bounds=reflect_bounds)
 
         # -- batching --
-        # print("x.shape: ",x.shape)
         rm_pix = 0#dil*(ps-1)# if only_full else dil*(ps//2-1)
         nh = (h - rm_pix - 1)//stride + 1
         nw = (w - rm_pix - 1)//stride + 1
@@ -226,20 +185,15 @@ class N3Aggregation2D(nn.Module):
         nbatch = min(nbatch,ntotal)
         # nbatch = ntotal
         nbatches = (ntotal-1) // nbatch + 1
-        # print("x.shape: ",x.shape)
 
         # -- aggregation --
         if self.aggregation is None:
             return y if y is not None else x
-        # print("x.shape: ",x.shape)
-        # print("xe.shape: ",xe.shape)
-        # print("ye.shape: ",ye.shape)
 
         # -- run for batches --
         for batch in range(nbatches):
 
             # -- batch info --
-            # print(batch)
             qindex = min(nbatch * batch,ntotal)
             nbatch_i =  min(nbatch, ntotal - qindex)
 
@@ -254,20 +208,6 @@ class N3Aggregation2D(nn.Module):
         # -- final steps --
         vid,zvid = fold.vid[0],fold.zvid[0]
         z = vid / zvid
-        # print(zvid)
-        # print("-"*30)
-        # print(vid[...,0,5:15,5:15],"5:15")
-        # print("-"*30)
-        # print(vid[...,0,-5:,-5:],"-5")
-        # print("-"*30)
-        # print(zvid[...,0,:10,:10],"z :10")
-        # print("-"*30)
-        # print(zvid[...,0,8:18,8:18],"z 8:18")
-        # print("-"*30)
-        # print(zvid[...,0,-5:,-5:],"z -5:")
-        # print("-"*30)
-        # print(zvid[...,0,-15:-5,-15:-5],"z -15:-5")
-        # print(th.any(th.isnan(z)))
         if th.any(th.isnan(z)).item():
             print("isnan(z)")
             exit(0)

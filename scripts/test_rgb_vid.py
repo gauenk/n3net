@@ -133,8 +133,8 @@ def run_exp(cfg):
         timer.start("deno")
         gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
         with th.no_grad():
-            deno = model(noisy/imax,flows)
-            # deno = fwd_fxn(noisy/imax,flows)
+            # deno = model(noisy/imax,flows)
+            deno = fwd_fxn(noisy/imax,flows)
         deno = th.clamp(deno,0,1.)*imax
         timer.stop("deno")
         mem_alloc,mem_res = gpu_mem.print_peak_gpu_stats(True,"val",reset=True)
@@ -175,7 +175,7 @@ def get_fwd_fxn(cfg,model):
     t_size = cfg.temporal_crop_size
     t_overlap = cfg.temporal_crop_overlap
     model_fwd = lambda vid,flows: model(vid,flows=flows)
-    if not(s_size is None):
+    if not(s_size is None) and not(s_size is "none")
         schop_p = lambda vid,flows: spatial_chop(s_size,s_overlap,model_fwd,vid,
                                                  flows=flows,verbose=s_verbose)
     else:
@@ -225,15 +225,15 @@ def main():
     cfg.seed = 123
     cfg.bw = True
     cfg.flow = False
-    cfg.nframes = 2
-    # cfg.isize = "none"
-    cfg.isize = "128_128"
+    cfg.nframes = 5
+    cfg.isize = "none"
+    # cfg.isize = "128_128"
     cfg.frame_start = 0
     cfg.frame_end = cfg.frame_start+cfg.nframes-1
     cfg.frame_end = 0 if cfg.frame_end < 0 else cfg.frame_end
-    cfg.spatial_crop_size = 256
+    cfg.spatial_crop_size = "none"
     cfg.spatial_crop_overlap = 0.#0.1
-    cfg.temporal_crop_size = 2
+    cfg.temporal_crop_size = 5
     cfg.temporal_crop_overlap = 0.#4/5. # 3 of 5 frames
     cfg.ps = 10
 
@@ -241,10 +241,10 @@ def main():
     internal_adapt_nsteps = [300]
     internal_adapt_nepochs = [0]
     # ws,wt,k,bs,stride = [20],[0],[7],[28*1024],[5]
-    ws,wt,k,bs,stride = [29],[0],[7],[28*1024],[5]
+    ws,wt,k,bs,stride = [29],[3],[7],[5*1024],[5]
     # ws,wt,k,bs,stride = [20],[3],[7],[28*1024],[5]
     dnames,sigmas,use_train = ["set8"],[50.,30.,10.],["false"]
-    sigmas = [25.]
+    sigmas = [50.]
     # ws,wt,k,bs,stride = [15],[3],[7],[32],[5]
     # wt,sigmas = [0],[30.]
     # vid_names = ["tractor"]
