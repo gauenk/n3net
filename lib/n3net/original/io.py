@@ -102,6 +102,7 @@ def load_model_deno(sigma,cfg):
     # -- load weights --
     fdir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
     state_fn = get_model_weights(fdir,sigma,ntype)
+    print("state_fn: ",state_fn)
     assert os.path.isfile(str(state_fn))
 
     # -- fill weights --

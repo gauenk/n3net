@@ -29,7 +29,6 @@ def load_model_deno(sigma,kwargs):
 
     # -- misc --
     device = optional(kwargs,'device','cuda:0')
-    patchsize = optional(kwargs,'patchsize',80)
     nfeatures_interm = optional(kwargs,"nfeatures_interm",8)
     ndncnn = optional(kwargs,"ndcnn",3)
     ntype =  optional(kwargs,"ntype","gaussian")
@@ -78,7 +77,7 @@ def load_model_deno(sigma,kwargs):
     # -- non-local options --
     k = optional(kwargs,'k',7)
     pt = optional(kwargs,'pt',1)
-    ps = optional(kwargs,'ps',10)
+    ps = optional(kwargs,'ps',7)
     stride = optional(kwargs,'stride',5)
     dilation = optional(kwargs,'dilation',1)
     ws = optional(kwargs,'ws',-1)
@@ -98,6 +97,7 @@ def load_model_deno(sigma,kwargs):
     fdir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
     state_fn = get_model_weights(fdir,sigma,ntype)
     assert os.path.isfile(str(state_fn))
+    print("state_fn: ",state_fn)
 
     # -- fill weights --
     load_checkpoint(model,state_fn)

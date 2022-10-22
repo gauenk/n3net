@@ -85,7 +85,7 @@ def run_exp(cfg):
         region = sample['region']
         noisy,clean = sample['noisy'],sample['clean']
         noisy,clean = noisy.to(cfg.device),clean.to(cfg.device)
-        vid_frames = sample['fnums']
+        vid_frames = sample['fnums'].cpu().numpy()
         print("[%d] noisy.shape: " % index,noisy.shape)
 
         # -- optional crop --
@@ -133,7 +133,8 @@ def run_exp(cfg):
         timer.start("deno")
         gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
         with th.no_grad():
-            deno = fwd_fxn(noisy/imax,flows)
+            deno = model(noisy/imax,flows)
+            # deno = fwd_fxn(noisy/imax,flows)
         deno = th.clamp(deno,0,1.)*imax
         timer.stop("deno")
         mem_alloc,mem_res = gpu_mem.print_peak_gpu_stats(True,"val",reset=True)
@@ -174,8 +175,11 @@ def get_fwd_fxn(cfg,model):
     t_size = cfg.temporal_crop_size
     t_overlap = cfg.temporal_crop_overlap
     model_fwd = lambda vid,flows: model(vid,flows=flows)
-    schop_p = lambda vid,flows: spatial_chop(s_size,s_overlap,model_fwd,vid,
-                                             flows=flows,verbose=s_verbose)
+    if not(s_size is None):
+        schop_p = lambda vid,flows: spatial_chop(s_size,s_overlap,model_fwd,vid,
+                                                 flows=flows,verbose=s_verbose)
+    else:
+        schop_p = model_fwd
     tchop_p = lambda vid,flows: temporal_chop(t_size,t_overlap,schop_p,vid,
                                               flows=flows,verbose=t_verbose)
     fwd_fxn = tchop_p # rename
@@ -211,51 +215,56 @@ def main():
 
     # -- get cache --
     cache_dir = ".cache_io"
-    cache_name = "test_rgb_net" # current!
+    # cache_name = "test_rgb_net" # current!
+    cache_name = "test_rgb_net_rebuttle" # current!
     cache = cache_io.ExpCache(cache_dir,cache_name)
-    # cache.clear()
+    cache.clear()
 
     # -- get defaults --
     cfg = configs.default_test_vid_cfg()
+    cfg.seed = 123
     cfg.bw = True
-    cfg.flow = True
-    cfg.nframes = 0
+    cfg.flow = False
+    cfg.nframes = 2
+    # cfg.isize = "none"
+    cfg.isize = "128_128"
     cfg.frame_start = 0
     cfg.frame_end = cfg.frame_start+cfg.nframes-1
     cfg.frame_end = 0 if cfg.frame_end < 0 else cfg.frame_end
     cfg.spatial_crop_size = 256
-    cfg.spatial_crop_overlap = 0.1
-    cfg.temporal_crop_size = 3
-    cfg.temporal_crop_overlap = 4/5. # 3 of 5 frames
-
+    cfg.spatial_crop_overlap = 0.#0.1
+    cfg.temporal_crop_size = 2
+    cfg.temporal_crop_overlap = 0.#4/5. # 3 of 5 frames
+    cfg.ps = 10
 
     # -- get mesh --
     internal_adapt_nsteps = [300]
     internal_adapt_nepochs = [0]
-    ws,wt,k,bs,stride = [29],[3],[7],[28*1024],[4]
+    # ws,wt,k,bs,stride = [20],[0],[7],[28*1024],[5]
+    ws,wt,k,bs,stride = [29],[0],[7],[28*1024],[5]
     # ws,wt,k,bs,stride = [20],[3],[7],[28*1024],[5]
     dnames,sigmas,use_train = ["set8"],[50.,30.,10.],["false"]
+    sigmas = [25.]
     # ws,wt,k,bs,stride = [15],[3],[7],[32],[5]
     # wt,sigmas = [0],[30.]
     # vid_names = ["tractor"]
     # bs = [512*512]
-    # vid_names = ["sunflower"]#,"hypersmooth","tractor"]
-    vid_names = ["snowboard","sunflower","tractor","motorbike",
-                 "hypersmooth","park_joy","rafting","touchdown"]
-    flow,isizes,adapt_mtypes = ["true"],["none"],["rand"]
+    vid_names = ["sunflower"]#,"hypersmooth","tractor"]
+    # vid_names = ["snowboard","sunflower","tractor","motorbike",
+    #              "hypersmooth","park_joy","rafting","touchdown"]
+    flow,adapt_mtypes = ["true"],["rand"]
     model_names = ["refactored"]
     exp_lists = {"dname":dnames,"vid_name":vid_names,"sigma":sigmas,
                  "internal_adapt_nsteps":internal_adapt_nsteps,
                  "internal_adapt_nepochs":internal_adapt_nepochs,
                  "flow":flow,"ws":ws,"wt":wt,"adapt_mtype":adapt_mtypes,
-                 "isize":isizes,"use_train":use_train,"stride":stride,
+                 "use_train":use_train,"stride":stride,
                  "ws":ws,"wt":wt,"k":k, "bs":bs, "model_name":model_names}
     exps_a = cache_io.mesh_pydicts(exp_lists) # create mesh
     # exp_lists['wt'] = [3]
     # exp_lists['bs'] = [512*512//8]
     # exps_a = cache_io.mesh_pydicts(exp_lists)
     cache_io.append_configs(exps_a,cfg) # merge the two
-
 
     # -- original w/out training --
     # exp_lists['ws'] = [-1]

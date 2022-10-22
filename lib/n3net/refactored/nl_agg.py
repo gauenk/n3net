@@ -45,9 +45,9 @@ class N3AggregationBase(nn.Module):
 
         # -- compute distance --
         dists,inds = search(xe[None,:],qindex,nbatch_i,ye[None,:])
-        # dists,inds = dists[0],inds[0]
+        dists,inds = dists[0],inds[0]
         dists = -dists
-        # print("dists.shape: ",dists.shape)
+        print("dists.shape: ",dists.shape)
         # print(dists[0])
         # print(th.where(th.abs(dists[0] + 0.1306)<1e-3))
         # print(th.where(th.abs(dists[0] + 0.2401)<1e-3))
@@ -86,15 +86,17 @@ class N3AggregationBase(nn.Module):
         #     z_patches.append(z_patches_ki)
         # z_patches = th.stack(z_patches,1)
 
-        c = x.shape[1]
+        c = x.shape[-3]
         ps = wpsum.ps
         # z_patches = th.zeros((b,self.k,c,ps,ps),device=W.device,dtype=th.float32)
-        print("x.shape ",x.shape)
-        print("W.shape: ",W.shape)
+        # print("x.shape ",x.shape)
+        # print("W.shape: ",W.shape)
+        # print("inds.shape: " ,inds.shape)
         z_patches = wpsum(x[None,:],W[None,:],inds[None,:]) # b self.k c h w
-        z_patches = z_patches[0]
+        # print("z_patches.shape:" ,z_patches.shape)
+        # print(z_patches[0,0,:,0,0])
 
-        # z_patches = repeat(z_patches,'b 1 c h w -> b k c h w',k=self.k)
+        # z_patches = repeat(z_patches,'q 1 c h w -> q k c h w',k=self.k)
         # print("z_patches.shape: ",z_patches.shape)
         # print(z_patches[0,0,0,:3,:3])
         # print(z_patches[0,1,0,:7,:7])
@@ -103,11 +105,9 @@ class N3AggregationBase(nn.Module):
 
         # -- fold into video --
         ps = unfold.ps
-        shape_str = 'b k c ph pw -> b 1 1 (k c) ph pw'
+        shape_str = 'b k q c ph pw -> b q 1 1 (k c) ph pw'
         z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
-        # ones = th.ones_like(z_patches)
-        fold(z_patches[None,:],qindex)
-        # wfold(ones,qindex)
+        fold(z_patches,qindex)
 
 class N3Aggregation2D(nn.Module):
     r"""
@@ -166,6 +166,7 @@ class N3Aggregation2D(nn.Module):
         stride = self.stride
         ps,k = self.patchsize,self.k
         ws,wt,pt = self.ws,self.wt,self.pt
+        print("ws,ps: ",ws,ps)
         exact = False
         reflect_bounds = False
         rbounds = reflect_bounds
@@ -252,7 +253,24 @@ class N3Aggregation2D(nn.Module):
 
         # -- final steps --
         vid,zvid = fold.vid[0],fold.zvid[0]
-        z = fold.vid / (zvid+1e-10)
+        z = vid / zvid
+        # print(zvid)
+        # print("-"*30)
+        # print(vid[...,0,5:15,5:15],"5:15")
+        # print("-"*30)
+        # print(vid[...,0,-5:,-5:],"-5")
+        # print("-"*30)
+        # print(zvid[...,0,:10,:10],"z :10")
+        # print("-"*30)
+        # print(zvid[...,0,8:18,8:18],"z 8:18")
+        # print("-"*30)
+        # print(zvid[...,0,-5:,-5:],"z -5:")
+        # print("-"*30)
+        # print(zvid[...,0,-15:-5,-15:-5],"z -15:-5")
+        # print(th.any(th.isnan(z)))
+        if th.any(th.isnan(z)).item():
+            print("isnan(z)")
+            exit(0)
         z = z.contiguous().view(t,k,c,h,w)
         z = z-y.view(t,1,c,h,w)
         z = z.view(t,k*c,h,w)

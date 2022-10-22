@@ -50,7 +50,7 @@ def default_train_cfg():
     cfg.index_skip_val = 5
     cfg.nepochs = 10
     cfg.log_root = "./output/log/train/"
-    cfg.cropmode = "region_sobel"
+    # cfg.cropmode = "region_sobel"
     cfg.seed = 123
     return cfg
 
