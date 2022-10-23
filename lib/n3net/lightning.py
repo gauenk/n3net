@@ -46,37 +46,38 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 
 class N3NetLit(pl.LightningModule):
 
-    def __init__(self,batch_size=1,flow=True,
-                 isize=None,bw=False,fwd_mode="original",
-                 stride=8,ws=29,wt=0,k=100,nversion="noise"):
+    def __init__(self,model_cfg,flow=True,isize=None,batch_size=1,
+                 lr_init=0.0002,weight_decay=0.,nepochs=250,
+                 scheduler="default",task="denoise",uuid="default"):
         super().__init__()
-        self.bw = bw
-        self.nchnls = 1 if bw else 3
-        args = []
-        kwargs = dict(fwd_mode=fwd_mode,stride=stride,
-                      noise_version=nversion,ws=ws,wt=wt,k=k)
-        # self.model = n3net.original.load_model(*args,**kwargs)
-        self.model = n3net.augmented.load_model(*args,**kwargs)
+        self.model = n3net.get_deno_model(**model_cfg)
+        self.model_name = model_cfg.model_name
+        self.sigma = model_cfg.sigma
         self.batch_size = batch_size
         self.flow = flow
         self.isize = isize
+        self.lr_init = lr_init
+        self.weight_decay = weight_decay
+        self.nepochs = nepochs
+        self.scheduler = scheduler
+        self.task = task
+        self.uuid = uuid
         self.gen_loger = logging.getLogger('lightning')
         self.gen_loger.setLevel("NOTSET")
-        self.fwd_mode = fwd_mode
         self.lr = 1e-4
 
     def forward(self,vid):
-        if self.fwd_mode == "dnls_k" or self.fwd_mode == "dnls":
+        if self.model_name in ["dnls_k","dnls","refactored"]:
             return self.forward_dnls_k(vid)
-        elif self.fwd_mode in ["default","original"]:
+        elif self.model_name in ["default","original"]:
             return self.forward_default(vid)
         else:
-            msg = f"Uknown ca forward type [{self.fwd_mode}]"
+            msg = f"Uknown model name [{self.model_name}]"
             raise ValueError(msg)
 
     def forward_dnls_k(self,vid):
         flows = self._get_flow(vid)
-        deno = self.model(vid,flows=flows,region=None)
+        deno = self.model(vid,flows=flows)
         deno = th.clamp(deno,0.,1.)
         return deno
 
@@ -87,8 +88,8 @@ class N3NetLit(pl.LightningModule):
 
     def _get_flow(self,vid):
         if self.flow == True:
-            sigma_est = flow.est_sigma(noisy[0])
-            flows = flow.run_batch(noisy,sigma_est)
+            sigma_est = flow.est_sigma(vid[0])
+            flows = flow.run_batch(vid[None,:],sigma_est)
         else:
             t,c,h,w = vid.shape
             zflows = th.zeros((t,2,h,w)).to(self.device)
@@ -139,6 +140,7 @@ class N3NetLit(pl.LightningModule):
         # -- unpack batch
         noisy = batch['noisy'][i]/255.
         clean = batch['clean'][i]/255.
+        # print("[train] noisy.shape: ",noisy.shape)
 
         # -- foward --
         deno = self.forward(noisy)
@@ -154,6 +156,7 @@ class N3NetLit(pl.LightningModule):
         region = batch['region'][0]
         noisy = rslice(noisy,region)
         clean = rslice(clean,region)
+        # print("[val] noisy.shape: ",noisy.shape)
 
         # -- forward --
         gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
@@ -181,6 +184,7 @@ class N3NetLit(pl.LightningModule):
         noisy,clean = batch['noisy'][0]/255.,batch['clean'][0]/255.
         noisy = rslice(noisy,region)
         clean = rslice(clean,region)
+        # print("[test] noisy.shape: ",noisy.shape)
 
         # -- forward --
         gpu_mem.print_peak_gpu_stats(False,"test",reset=True)

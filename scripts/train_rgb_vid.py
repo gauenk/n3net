@@ -16,9 +16,6 @@ from easydict import EasyDict as edict
 # -- data --
 import data_hub
 
-# -- optical flow --
-import svnlb
-
 # -- caching results --
 import cache_io
 
@@ -29,7 +26,7 @@ import n3net.utils.gpu_mem as gpu_mem
 from n3net.utils.timer import ExpTimer
 from n3net.utils.metrics import compute_psnrs,compute_ssims
 from n3net.utils.misc import rslice,write_pickle,read_pickle
-from n3net.lightning import N3netLit,MetricsCallback
+from n3net.lightning import N3NetLit,MetricsCallback
 
 # -- lightning module --
 import torch
@@ -39,7 +36,7 @@ from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks import ModelCheckpoint,StochasticWeightAveraging
 from pytorch_lightning.utilities.distributed import rank_zero_only
 
-def launch_training(cfg):
+def launch_training(_cfg):
 
     # -=-=-=-=-=-=-=-=-
     #
@@ -47,32 +44,41 @@ def launch_training(cfg):
     #
     # -=-=-=-=-=-=-=-=-
 
-    # -- set seed --
+    # -- set-up --
+    cfg = copy.deepcopy(_cfg)
+    cache_io.exp_strings2bools(cfg)
     configs.set_seed(cfg.seed)
+    root = (Path(__file__).parents[0] / ".." ).absolute()
 
     # -- create timer --
     timer = ExpTimer()
 
     # -- init log dir --
-    log_dir = Path(cfg.log_root) / str(cfg.uuid)
+    log_dir = root / "output/log/" / str(cfg.uuid)
+    print("Log Dir: ",log_dir)
     if not log_dir.exists():
         log_dir.mkdir(parents=True)
+    log_subdirs = ["train"]
+    for sub in log_subdirs:
+        log_subdir = log_dir / sub
+        if not log_subdir.exists(): log_subdir.mkdir()
 
     # -- prepare save directory for pickles --
-    save_dir = Path("./output/training/") / cfg.uuid
+    save_dir = root / "output/training/" / cfg.uuid
     if not save_dir.exists():
         save_dir.mkdir(parents=True)
 
     # -- network --
-    model = N3netLit(cfg.mtype,cfg.sigma,cfg.batch_size,
-                       cfg.flow=="true",cfg.ensemble=="true",
-                       cfg.ca_fwd,cfg.isize,cfg.bw,
-                       cfg.ws,cfg.wt,cfg.k)
+    model_cfg = n3net.extract_model_io(cfg)
+    model = N3NetLit(model_cfg,flow=cfg.flow,isize=cfg.isize,
+                     batch_size=cfg.batch_size_tr,lr_init=cfg.lr_init,
+                     weight_decay=cfg.weight_decay,nepochs=cfg.nepochs,
+                     task=cfg.task,uuid=str(cfg.uuid))
 
     # -- load dataset with testing mods isizes --
-    model.isize = None
+    # model.isize = None
     cfg_clone = copy.deepcopy(cfg)
-    cfg_clone.isize = None
+    # cfg_clone.isize = None
     cfg_clone.cropmode = "center"
     cfg_clone.nsamples_val = cfg.nsamples_at_testing
     data,loaders = data_hub.sets.load(cfg_clone)
@@ -114,11 +120,14 @@ def launch_training(cfg):
     chkpt_fn = cfg.uuid + "-{epoch:02d}"
     cc_recent = ModelCheckpoint(monitor="epoch",save_top_k=10,mode="max",
                                 dirpath=cfg.checkpoint_dir,filename=chkpt_fn)
-    swa_callback = StochasticWeightAveraging(swa_lrs=1e-4)
-    trainer = pl.Trainer(gpus=2,precision=32,limit_train_batches=1.,
+    # swa_callback = StochasticWeightAveraging(swa_lrs=1e-4)
+    trainer = pl.Trainer(accelerator="gpu",devices=cfg.ndevices,precision=32,
+                         accumulate_grad_batches=cfg.accumulate_grad_batches,
+                         limit_train_batches=cfg.limit_train_batches,
+                         limit_val_batches=5,
                          max_epochs=cfg.nepochs-1,log_every_n_steps=1,
-                         logger=logger,gradient_clip_val=0.5,
-                         callbacks=[checkpoint_callback,swa_callback,cc_recent])
+                         logger=logger,gradient_clip_val=0.0,
+                         callbacks=[checkpoint_callback,cc_recent])
     timer.start("train")
     trainer.fit(model, loaders.tr, loaders.val)
     timer.stop("train")
@@ -132,10 +141,10 @@ def launch_training(cfg):
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
     # -- reload dataset with no isizes --
-    model.isize = None
+    # model.isize = None
     cfg_clone = copy.deepcopy(cfg)
-    cfg_clone.isize = None
-    # cfg_clone.cropmode = "center"
+    # cfg_clone.isize = None
+    cfg_clone.cropmode = "center"
     cfg_clone.nsamples_tr = cfg.nsamples_at_testing
     cfg_clone.nsamples_val = cfg.nsamples_at_testing
     data,loaders = data_hub.sets.load(cfg_clone)
@@ -194,20 +203,20 @@ def main():
     cache.clear()
 
     # -- create exp list --
-    ws,wt,k = [20],[5],[100]
-    sigmas = [50.]#,30.,10.]
+    ws,wt,k = [20],[3],[7]
+    sigmas = [25.]#,30.,10.]
     flow = ['true']
-    isizes = ["128_128"]
+    isize = ["128_128"]
     ca_fwd_list = ["dnls_k"]
     exp_lists = {"sigma":sigmas,"ws":ws,"wt":wt,"k":k,
-                 "isize":isizes,"ca_fwd":ca_fwd_list,'flow':flow}
+                 "isize":isize,"ca_fwd":ca_fwd_list,'flow':flow}
     exps_a = cache_io.mesh_pydicts(exp_lists) # create mesh
 
     # -- default --
-    exp_lists['ca_fwd'] = ['default']
-    exp_lists['flow'] = ['false']
-    exp_lists['isize'] = ['128_128']
-    exps_b = cache_io.mesh_pydicts(exp_lists) # create mesh
+    # exp_lists['ca_fwd'] = ['default']
+    # exp_lists['flow'] = ['false']
+    # exp_lists['isize'] = ['128_128']
+    # exps_b = cache_io.mesh_pydicts(exp_lists) # create mesh
 
     # -- try training "dnls_k" without flow --
     # exp_lists['ca_fwd'] = ['dnls_k']
@@ -217,16 +226,31 @@ def main():
     # -- agg --
     # exps = exps_a + exps_b
     # exps = exps_a + exps_b# + exps_c
-    exps = exps_a + exps_b
+    exps = exps_a# + exps_b
     nexps = len(exps)
 
     # -- group with default --
     cfg = configs.default_train_cfg()
-    cfg.nsamples_tr = 400
+    cfg.ndevices = 1
+    cfg.dname = "davis_cropped"
+    cfg.bw = True
+    cfg.nsamples_tr = 2000
     cfg.nsamples_val = 30
     cfg.nepochs = 100
+    cfg.accumulate_grad_batches = 1
+    cfg.limit_train_batches = 1.
     cfg.persistent_workers = True
-    cfg.batch_size = 4
+    cfg.flow = True
+    cfg.batch_size = 1
+    cfg.batch_size_tr = 5
+    cfg.batch_size_val = 1
+    cfg.batch_size_te = 1
+    cfg.lr_init = 0.0002
+    cfg.weight_decay = 0.02
+    cfg.nframes = 5
+    cfg.nframes_val = 5
+    cfg.task = "denoising"
+    cfg.model_name = "refactored"
     cache_io.append_configs(exps,cfg) # merge the two
 
     # -- launch each experiment --

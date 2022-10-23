@@ -115,11 +115,17 @@ class N3Aggregation2D(nn.Module):
             y = x
             ye = xe
 
+        # -- flows --
+        fflow,bflow = get_flows(flows,(1,)+x.shape,x.device)
+        # fflow,bflow = fflow[None,:],bflow[None,:]
+
         # -- add padding --
         x = F.pad(x,(1,1,1,1))
         xe = F.pad(xe,(1,1,1,1))
         ye = F.pad(ye,(1,1,1,1))
         y = F.pad(y,(1,1,1,1))
+        fflow = F.pad(fflow,(1,1,1,1))
+        bflow = F.pad(bflow,(1,1,1,1))
 
         # -- unpack --
         device = x.device
@@ -141,9 +147,6 @@ class N3Aggregation2D(nn.Module):
         full_ws = True
         only_full = False
         border_str = "reflect" if rbounds else "zero"
-
-        # -- flows --
-        fflow,bflow = get_flows(flows,(1,)+x.shape,x.device)
 
         # -- init fold --
         unfold = dnls.iUnfold(ps,coords,stride=stride,dilation=dil,

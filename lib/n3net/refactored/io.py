@@ -3,6 +3,8 @@
 # -- misc --
 import sys,os,copy
 from pathlib import Path
+from functools import partial
+from easydict import EasyDict as edict
 
 # -- torch --
 import torch as th
@@ -14,31 +16,47 @@ import numpy as np
 from .n3net import N3Net
 
 # -- misc imports --
-from n3net.utils.misc import optional
+from n3net.utils.misc import optional as _optional
 from n3net.utils.model_utils import load_checkpoint,select_sigma,get_model_weights
 
-def load_model(mtype,sigma,cfg=None):
-    if mtype == "denoising":
-        return load_model_deno(sigma,cfg)
-    elif mtype == "sr":
+# -- auto populate fields to extract config --
+_fields = []
+def optional_full(init,pydict,field,default):
+    if not(field in _fields) and init:
+        _fields.append(field)
+    return _optional(pydict,field,default)
+
+# -- model load wrapper --
+def load_model(**kwargs):
+    task = _optional(kwargs,"task","denoising")
+    if task == "denoising":
+        return load_model_deno(**kwargs)
+    elif task == "sr":
         raise NotImplementedError("")
     else:
-        raise ValueError("")
+        raise ValueError(f"Uknown tasks [{task}]")
 
-def load_model_deno(sigma,kwargs):
+# -- load model --
+def load_model_deno(**kwargs):
 
     # -- misc --
+    init = _optional(kwargs,'__init',False) # purposefully weird key
+    optional = partial(optional_full,init)
     device = optional(kwargs,'device','cuda:0')
     nfeatures_interm = optional(kwargs,"nfeatures_interm",8)
     ndncnn = optional(kwargs,"ndcnn",3)
     ntype =  optional(kwargs,"ntype","gaussian")
+    model_name = optional(kwargs,"model_name","") # just add to model_cfg
+
+    # -- io --
+    sigma = optional(kwargs,"sigma",50.)
+    task = _optional(kwargs,"task","denoising")
 
     # -- non-local [temp] --
     nl_temp_avgpool = optional(kwargs,'nl_temp_avgpool',"true") == "true"
     nl_temp_distance_bn = optional(kwargs,'nl_temp_distance_bn',"true") == "true"
     nl_temp_external_temp = optional(kwargs,'nl_temp_external_temp',"true") == "true"
     nl_temp_temp_bias = optional(kwargs,'nl_temp_temp_bias',0.1)
-
 
     # -- dncnn --
     dncnn_bn = optional(kwargs,"dncnn_bn","true") == "true"
@@ -53,9 +71,19 @@ def load_model_deno(sigma,kwargs):
     embedcnn_nplanes_out = optional(kwargs,"embedcnn_nplanes_out",8)
     embedcnn_bn = optional(kwargs,"embedcnn_bn","true") == "true"
 
+    # -- non-local options --
+    k = optional(kwargs,'k',7)
+    k = 7
+    pt = optional(kwargs,'pt',1)
+    ps = optional(kwargs,'ps',7)
+    stride = optional(kwargs,'stride',5)
+    dilation = optional(kwargs,'dilation',1)
+    ws = optional(kwargs,'ws',-1)
+    wt = optional(kwargs,'wt',0)
+    batch_size = optional(kwargs,'bs',None)
+    if init: return
+
     # -- args --
-    ninchannels=1
-    noutchannels=1
     nl_temp_opt = dict(
         avgpool = nl_temp_avgpool,
         distance_bn = nl_temp_distance_bn,
@@ -74,18 +102,10 @@ def load_model_deno(sigma,kwargs):
         kernel = dncnn_kernel,
         residual = True)
 
-    # -- non-local options --
-    k = optional(kwargs,'k',7)
-    pt = optional(kwargs,'pt',1)
-    ps = optional(kwargs,'ps',7)
-    stride = optional(kwargs,'stride',5)
-    dilation = optional(kwargs,'dilation',1)
-    ws = optional(kwargs,'ws',-1)
-    wt = optional(kwargs,'wt',0)
-    batch_size = optional(kwargs,'bs',None)
-    residual = False
-
     # -- declare model --
+    ninchannels=1
+    noutchannels=1
+    residual = False
     print(ws,wt,k,stride,dilation,ps,pt,batch_size)
     model = N3Net(ninchannels, noutchannels, nfeatures_interm, ndncnn,
                   residual, dncnn_opt, nl_temp_opt, embedcnn_opt,
@@ -107,4 +127,15 @@ def load_model_deno(sigma,kwargs):
 
     return model
 
+# -- get all relevant model_cfg keys from entire cfg --
+def extract_model_io(cfg):
+    # -- auto populated fields --
+    fields = _fields
+    model_cfg = {}
+    for field in fields:
+        if field in cfg:
+            model_cfg[field] = cfg[field]
+    return edict(model_cfg)
 
+# -- run to populate "_fields" --
+load_model(__init=True)

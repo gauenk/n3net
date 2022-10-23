@@ -10,7 +10,6 @@ import math
 import torch as th
 import torch.nn as nn
 from . import nl_agg
-from n3net.utils.model_utils import temporal_chop
 
 def convnxn(in_planes, out_planes, kernelsize, stride=1, bias=False):
     padding = kernelsize//2
@@ -183,19 +182,21 @@ class N3Block(nn.Module):
 
         # print("x.shape: ",x.shape)
         # -- temporal chop if needed [not search's fault; batch-norm's ;) ] --
-        nframes = x.shape[0]
-        if nframes > self.tsize:
-            xe = temporal_chop(x,self.tsize,self.embedcnn)
-        else:
-            xe = self.embedcnn(x)
+        # nframes = x.shape[0]
+        # if nframes > self.tsize:
+        #     xe = temporal_chop(x,self.tsize,self.embedcnn)
+        # else:
+        #     xe = self.embedcnn(x)
+        xe = self.embedcnn(x)
 
         ye = xe
         xg = x
         if self.tempcnn is not None:
-            if nframes > self.tsize:
-                log_temp = temporal_chop(x,self.tsize,self.tempcnn)
-            else:
-                log_temp = self.tempcnn(x)
+            # if nframes > self.tsize:
+            #     log_temp = temporal_chop(x,self.tsize,self.tempcnn)
+            # else:
+            #     log_temp = self.tempcnn(x)
+            log_temp = self.tempcnn(x)
         else:
             log_temp = None
 
@@ -230,11 +231,11 @@ class N3Net(nn.Module):
         self.nplanes_out = nplanes_out
         self.nblocks = nblocks
         self.residual = residual
-        self.tsize = 10
+        # self.tsize = 10
+        # print(nplanes_in,nplanes_out,nplanes_interm)
 
         nin = nplanes_in
-        cnns = []
-        nls = []
+        cnns,nls = [],[]
         for i in range(nblocks-1):
             cnns.append(DnCNN(nin, nplanes_interm, **block_opt))
             nl = N3Block(nplanes_interm,k=k,patchsize=patchsize,
@@ -251,18 +252,18 @@ class N3Net(nn.Module):
         self.blocks = nn.Sequential(*cnns)
 
     def forward(self, x, flows=None):
-        print("refactored.")
+        # print("refactored.")
         shortcut = x
         for i in range(self.nblocks-1):
-            nframes = x.shape[0]
-            if nframes > self.tsize:
-                x = temporal_chop(x,self.tsize,self.blocks[i])
-            else:
-                x = self.blocks[i](x)
+            # nframes = x.shape[0]
+            # if nframes > self.tsize:
+            #     x = temporal_chop(x,self.tsize,self.blocks[i])
+            # else:
+            #    x = self.blocks[i](x)
+            x = self.blocks[i](x)
             x = self.nls[i](x, flows)
 
         x = self.blocks[-1](x)
-
         if self.residual:
             nshortcut = min(self.nplanes_in, self.nplanes_out)
             x[:,:nshortcut,:,:] = x[:,:nshortcut,:,:] + shortcut[:,:nshortcut,:,:]
