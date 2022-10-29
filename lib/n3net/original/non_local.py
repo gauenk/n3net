@@ -320,7 +320,8 @@ class N3Aggregation2D(nn.Module):
             return y if y is not None else x
 
         # Convert everything to patches
-        x_patch, padding = ops.im2patch(x, self.patchsize, self.stride, None, returnpadding=True)
+        x_patch, padding = ops.im2patch(x, self.patchsize, self.stride,
+                                        None, returnpadding=True)
         xe_patch = ops.im2patch(xe, self.patchsize, self.stride, self.padding)
         if y is None:
             # print("y is None.")

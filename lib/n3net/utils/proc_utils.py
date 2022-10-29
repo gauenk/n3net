@@ -119,7 +119,7 @@ def temporal_chop(tsize,overlap,fwd_fxn,vid,flows=None,verbose=False):
 
         # -- extract --
         t_slice = slice(t_chunk,t_chunk+tsize)
-        vid_chunk = vid[t_slice]
+        vid_chunk = vid[...,t_slice,:,:,:]
         vprint("t_chunk: ",t_chunk,vid_chunk.shape)
         flow_chunk = get_temporal_chunk_flow(flows,t_slice)
 

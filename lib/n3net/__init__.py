@@ -11,11 +11,17 @@ from . import flow
 from .utils.misc import optional
 from .refactored import extract_model_io
 
+# -- api for searching --
+from . import search
+from .search import init_search,extract_search_config
+
 # -- papers --
 from . import aaai23
 
 # -- model io --
-def get_deno_model(model_name,sigma,**kwargs):
+# def get_deno_model(model_name,sigma,**kwargs):
+def get_deno_model(**kwargs):
+    model_name = optional(kwargs,"model_name","refactored")
     device = optional(kwargs,"device","cuda:0")
     if model_name == "original":
         model = original.load_model("denoising",sigma,kwargs).to(device)

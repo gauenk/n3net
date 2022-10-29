@@ -10,3 +10,4 @@ from . import misc
 from . import metrics
 from . import proc_utils
 from . import color
+from .misc import optional

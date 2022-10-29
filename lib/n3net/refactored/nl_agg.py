@@ -44,6 +44,7 @@ class N3AggregationBase(nn.Module):
         """
 
         # -- compute distance --
+        # print("xe.shape,ye.shape: ",xe.shape,ye.shape)
         dists,inds = search(xe[None,:],qindex,nbatch_i,ye[None,:])
         dists,inds = dists[0],inds[0]
         dists = -dists
@@ -169,7 +170,7 @@ class N3Aggregation2D(nn.Module):
                                   full_ws=full_ws,exact=exact,
                                   h0_off=h0_off,w0_off=w0_off,
                                   h1_off=h1_off,w1_off=w1_off,
-                                  remove_self=True)
+                                  remove_self=True,rbwd=True)
 
         # -- weighted patch sum --
         h_off,w_off = 0,0

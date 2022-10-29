@@ -11,8 +11,34 @@ import torch as th
 import torch.nn as nn
 from . import nl_agg
 
+# class Conv2dFlops(nn.Module):
+#     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
+#                  padding=0,bais=True):
+#         self.super().__init__()
+#         self.in_channels = in_channels
+#         self.out_channels = out_channels
+#         self.kernel_size = kernel_size
+#         self.stride = stride
+#         self.padding = padding
+#         self.bias = bais
+#         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
+#                               stride=stride, padding=padding, bias=bias)
+#     def forward(self,img):
+#         return self.conv(img)
+
+#     def flops(self, H, W):
+#         flops = H*W*self.in_channels*self.out_channels*(self.kernel_size**2+self.bias)
+#         return flops
+
+# class BatchNormFlops(nn.Module):
+#     def __init__(self, in_channels, out_channels):
+#         pass
+    # def
+    # flops += H*W*self.out_channel
+
 def convnxn(in_planes, out_planes, kernelsize, stride=1, bias=False):
     padding = kernelsize//2
+    # return Conv2dFlops(in_planes, out_planes, kernel_size=kernelsize, stride=stride, padding=padding, bias=bias)
     return nn.Conv2d(in_planes, out_planes, kernel_size=kernelsize, stride=stride, padding=padding, bias=bias)
 
 def dncnn_batchnorm_init(m, kernelsize=3, b_min=0.025):

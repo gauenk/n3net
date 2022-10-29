@@ -126,7 +126,7 @@ def launch_training(_cfg):
                          limit_train_batches=cfg.limit_train_batches,
                          limit_val_batches=5,
                          max_epochs=cfg.nepochs-1,log_every_n_steps=1,
-                         logger=logger,gradient_clip_val=0.0,
+                         logger=logger,gradient_clip_val=0.5,
                          callbacks=[checkpoint_callback,cc_recent])
     timer.start("train")
     trainer.fit(model, loaders.tr, loaders.val)
@@ -203,13 +203,13 @@ def main():
     cache.clear()
 
     # -- create exp list --
-    ws,wt,k = [20],[3],[7]
-    sigmas = [25.]#,30.,10.]
-    flow = ['true']
+    ws,wt,k = [29],[3],[7]
+    # sigma = [50.]#,30.,10.]
+    sigma = [25.]#,30.,10.]
     isize = ["128_128"]
     ca_fwd_list = ["dnls_k"]
-    exp_lists = {"sigma":sigmas,"ws":ws,"wt":wt,"k":k,
-                 "isize":isize,"ca_fwd":ca_fwd_list,'flow':flow}
+    exp_lists = {"sigma":sigma,"ws":ws,"wt":wt,"k":k,
+                 "isize":isize,"ca_fwd":ca_fwd_list}
     exps_a = cache_io.mesh_pydicts(exp_lists) # create mesh
 
     # -- default --
@@ -234,22 +234,25 @@ def main():
     cfg.ndevices = 1
     cfg.dname = "davis_cropped"
     cfg.bw = True
-    cfg.nsamples_tr = 2000
+    cfg.nsamples_tr = 0
     cfg.nsamples_val = 30
     cfg.nepochs = 100
+    cfg.aug_training_scales = [0.5,0.75,1.]
+    cfg.aug_training_flips = True
     cfg.accumulate_grad_batches = 1
-    cfg.limit_train_batches = 1.
+    cfg.limit_train_batches = .025
     cfg.persistent_workers = True
-    cfg.flow = True
+    cfg.flow = False
     cfg.batch_size = 1
-    cfg.batch_size_tr = 5
+    cfg.batch_size_tr = 6
     cfg.batch_size_val = 1
     cfg.batch_size_te = 1
-    cfg.lr_init = 0.0002
-    cfg.weight_decay = 0.02
+    cfg.lr_init = 1e-6
+    cfg.weight_decay = 0.00
     cfg.nframes = 5
     cfg.nframes_val = 5
     cfg.task = "denoising"
+    cfg.num_workers = 4
     cfg.model_name = "refactored"
     cache_io.append_configs(exps,cfg) # merge the two
 

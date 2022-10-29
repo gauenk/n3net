@@ -20,6 +20,14 @@ import cv2 as cv
 # -- local --
 from ..utils import color
 
+def run_zeros(vid,sigma=0.):
+    device = vid.device
+    b,t,c,h,w = vid.shape
+    flows = edict()
+    flows.fflow = th.zeros((b,t,2,h,w),device=device)
+    flows.bflow = th.zeros((b,t,2,h,w),device=device)
+    return flows
+
 def run_batch(vid,sigma):
     B = vid.shape[0]
     flows = edict()
@@ -93,8 +101,12 @@ def pair2flow_cpu(frame_a,frame_b,device):
     frame_b = frame_b.cpu().numpy()
 
     # -- exec flow --
-    flow = cv.calcOpticalFlowFarneback(frame_a,frame_b,
-                                        0.,0.,3,15,3,5,1.,0)
+    # flow = cv.calcOpticalFlowFarneback(frame_a,frame_b,
+    #                                    0.,0.,3,15,3,5,1.,0)
+    flow = cv.calcOpticalFlowFarneback(frame_a,frame_b,flow=None,
+                                       pyr_scale=0.5, levels=5, winsize=5,
+                                       iterations=10, poly_n=5, poly_sigma=1.2,
+                                       flags=10)
     flow = flow.transpose(2,0,1)
     flow = th.from_numpy(flow).to(device)
 

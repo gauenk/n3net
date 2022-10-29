@@ -64,7 +64,6 @@ class N3NetLit(pl.LightningModule):
         self.uuid = uuid
         self.gen_loger = logging.getLogger('lightning')
         self.gen_loger.setLevel("NOTSET")
-        self.lr = 1e-4
 
     def forward(self,vid):
         if self.model_name in ["dnls_k","dnls","refactored"]:
@@ -92,15 +91,15 @@ class N3NetLit(pl.LightningModule):
             flows = flow.run_batch(vid[None,:],sigma_est)
         else:
             t,c,h,w = vid.shape
-            zflows = th.zeros((t,2,h,w)).to(self.device)
+            zflows = th.zeros((1,t,2,h,w)).to(self.device)
             flows = edict()
             flows.fflow,flows.bflow = zflows,zflows
         return flows
 
     def configure_optimizers(self):
-        optim = th.optim.Adam(self.parameters(),lr=self.lr)
+        optim = th.optim.Adam(self.parameters(),lr=self.lr_init)
         StepLR = th.optim.lr_scheduler.StepLR
-        scheduler = StepLR(optim, step_size=5, gamma=0.1)
+        scheduler = StepLR(optim, step_size=50, gamma=0.1)
         return [optim], [scheduler]
 
     def training_step(self, batch, batch_idx):
