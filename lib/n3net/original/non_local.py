@@ -147,7 +147,6 @@ def log1mexp(x, expm1_guard = 1e-7):
     return y
 
 
-
 class NeuralNearestNeighbors(nn.Module):
     r"""
     Computes neural nearest neighbor volumes based on pairwise distances
