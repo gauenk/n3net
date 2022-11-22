@@ -23,6 +23,7 @@ def default_test_vid_cfg():
     cfg.mtype = "gray"
     cfg.bw = True
     cfg.seed = 123
+    cfg.dset = "te"
     return cfg
 
 

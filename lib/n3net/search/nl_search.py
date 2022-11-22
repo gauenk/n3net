@@ -86,6 +86,7 @@ class NLSearch():
         # -- indexing function --
         inds = index_neighbours(xe_patch, ye_patch, self.ws,
                                 exclude_self=not(self.include_self))
+        # print("inds.shape: ",inds.shape,self.ws)
         if self.index_reset:
             index_neighbours_cache.clear()
 
@@ -95,7 +96,7 @@ class NLSearch():
         _,_,o = inds.shape
         _,_,H,W = vid.shape
         n = n1*n2; m=m1*m2; f=c*p1*p2; e=ce*e1*e2
-        print((b,n,e),(b,m,e))
+        # print((b,n,e),(b,m,e))
         xe = xe_patch.permute(0,4,5,1,2,3).contiguous().view(b,n,f)
         ye = ye_patch.permute(0,4,5,1,2,3).contiguous().view(b,m,e)
 

@@ -53,21 +53,25 @@ class IndexedMatmul2Efficient(torch.autograd.Function):
     def forward(ctx, x, y, I, chunk_size=64):
         ctx.save_for_backward(x, y, I)
         ctx.chunk_size = chunk_size
-        b,_,o,k = y.shape
-        n,e = x.shape[1:3]
-        m = I.shape[1]
+        b,_,o,k = y.shape # b m o k
+        # print("x.shape: ",x.shape)
+        # print("y.shape: ",y.shape,chunk_size)
+        n,e = x.shape[1:3] # b n f
+        m = I.shape[1] # b m o
         x_interm = x.view(b,1,n,e).detach()
-        z_chunks = []
+        z_chunks = [] # b m f k
         for m_offset in range(0,m,chunk_size):
             this_chunk_size = min(chunk_size, m-m_offset)
             I_chunk = I[:,m_offset:m_offset+this_chunk_size,:]
             y_chunk = y[:,m_offset:m_offset+this_chunk_size,:,:]
-
+            # print("y_chunk.shape: ",y_chunk.shape)
             If = I_chunk.view(b,1,this_chunk_size,o).expand(b,k,this_chunk_size,o)
             y_full = torch.cuda.FloatTensor(b,k,this_chunk_size,n).fill_(0)
             # y_full =y_full.scatter_add(source=y_chunk.permute(0,3,1,2), index=If,dim=3)
             y_full = y_full.scatter_add(3,If,y_chunk.permute(0,3,1,2))
-            z_interm = torch.cat([torch.matmul(y_full[:,i_k:i_k+1,:,:], x_interm) for i_k in range(k)], 1)
+            # print("y_full.shape: ",y_full.shape)
+            z_interm = torch.cat([torch.matmul(y_full[:,i_k:i_k+1,:,:], x_interm)
+                                  for i_k in range(k)], 1)
             z_chunk = z_interm.permute(0,2,3,1)
             z_chunks.append(z_chunk)
         z = torch.cat(z_chunks, 1)
@@ -93,7 +97,9 @@ class IndexedMatmul2Efficient(torch.autograd.Function):
             If = I_chunk.view(b,1,this_chunk_size,o).expand(b,k,this_chunk_size,o)
             del I_chunk
             y_full = torch.cuda.FloatTensor(b,k,this_chunk_size,n).fill_(0)
-            y_full = y_full.scatter_add(source=y_chunk.permute(0,3,1,2), index=If, dim=3)
+            # y_full =y_full.scatter_add(source=y_chunk.permute(0,3,1,2),index=If,dim=3)
+            y_full = y_full.scatter_add(3,If,y_chunk.permute(0,3,1,2))
+
             del y_chunk
 
             for i_k in range(k):
@@ -141,7 +147,8 @@ def calc_padding(x, patchsize, stride, padding=None):
 
 def im2patch(x, patchsize, stride, padding=None, returnpadding=False):
     # -- padding --
-    padtop, padbottom, padleft, padright = calc_padding(x, patchsize, stride, padding)
+    padtop, padbottom, padleft, padright = calc_padding(x, patchsize,
+                                                        stride, padding)
     xpad = F.pad(x, pad=(padleft, padright, padtop, padbottom))
     # print(padtop, padbottom, padleft, padright)
 

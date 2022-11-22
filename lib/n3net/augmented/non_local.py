@@ -326,7 +326,7 @@ class N3Aggregation2D(nn.Module):
 
 
 index_neighbours_cache = {}
-def index_neighbours(xe_patch, ye_patch, s, exclude_self=True):
+def index_neighbours(b, n1, n2, m1, m2, s, dev, exclude_self=True):
     r"""
     This function generates the indexing tensors that define neighborhoods for each query patch
     It selects a neighborhood of s x s patches around each patch.
@@ -336,15 +336,12 @@ def index_neighbours(xe_patch, ye_patch, s, exclude_self=True):
     o = s**2
     if exclude_self:
         o-=1
-    b,_,_,_,n1,n2 = xe_patch.shape
     n = n1*n2
-    b,_,_,_,m1,m2 = ye_patch.shape
     m = m1*m2
 
     assert(m==n)
 
-    dev = xe_patch.get_device()
-    key = "{}_{}_{}_{}_{}_{}_{}".format(n1,n2,m1,m2,s,exclude_self, dev)
+    key = "{}_{}_{}_{}_{}_{}_{}".format(n1,n2,m1,m2,s,exclude_self,dev)
     if not key in index_neighbours_cache:
         I = th.empty(1,m1*m2,o, device=dev, dtype=th.int64)
 
@@ -364,28 +361,36 @@ def index_neighbours(xe_patch, ye_patch, s, exclude_self=True):
         mI = mI.view(m1,m2,-1)
         mI = mI[mI!=midx].view(m1*m2,-1)
         I[0,:,:] = mI
-        # I2 = I.clone()
 
-        # ih = th.LongTensor(range(s)).view(s,1)
-        # iw = th.LongTensor(range(s)).view(1,s)*n2
-        # for i in range(m1):
-        #     for j in range(m2):
-        #         midx = i*m2+j
-        #
-        #         ch = min(n1-s, max(0,i-s//2))
-        #         cw = min(n2-s, max(0,j-s//2))
-        #         cidx = ch*n2+cw
-        #         mI = cidx + ih + iw
-        #         mI = mI.view(-1)
-        #         if exclude_self:
-        #             mI = mI[mI!=midx]
-        #
-        #         I[0,midx,:] = mI
-        #
-        # ih = ih.cuda(dev)
-        # iw = iw.cuda(dev)
         index_neighbours_cache[key] = I
 
     I = index_neighbours_cache[key]
     I = I.repeat(b,1,1)
     return Variable(I, requires_grad=False)
+
+
+vid_index_neighbours_cache = {}
+def vid_index_neighbours(b,t,n1,n2,m1,m2,s,dev,exclude_self=True):
+
+    # -- create vars --
+    o = s**2
+    if exclude_self:
+        o-=1
+    n = n1*n2
+    m = m1*m2
+    assert(m==n)
+
+    key = "{}_{}_{}_{}_{}_{}_{}_{}".format(t,n1,n2,m1,m2,s,exclude_self,dev)
+    if not key in vid_index_neighbours_cache:
+        I = []
+        for ti in range(t):
+            It = index_neighbours(1, n1, n2, m1, m2, s, dev, exclude_self=True)
+            print("It.shape: ",It.shape)
+            I.append(It)
+        I = th.cat(I)
+        index_neighbours_cache[key] = I
+    I = index_neighbours_cache[key]
+    I = I.repeat(b,1,1)
+    return Variable(I, requires_grad=False)
+
+

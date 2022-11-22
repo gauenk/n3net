@@ -45,7 +45,7 @@ def compute_distances(xe, ye, I, train=True):
     b,n, e = xe.shape
     m = ye.shape[1]
     o = I.shape[2]
-    train = False
+    # train = False
 
     # D_full = th.cdist(xe,ye)
     # D = D_full.gather(dim=2, index=I)
@@ -69,6 +69,7 @@ def compute_distances(xe, ye, I, train=True):
 
     # return -D
 
+    # print("train: ",train)
     if not train:
         # xe_ind -> b m o e
         If = I.view(b, m*o,1).expand(b,m*o,e)
@@ -112,11 +113,12 @@ def aggregate_output(W,x,I, train=True):
     m,o = I.shape[1:3]
     k = W.shape[3]
     # print(b,m,o,k,f,n)
+    # print("x.shape: ",x.shape)
     # print("W.shape: ",W.shape)
     # print("I.shape: ",I.shape)
     # print(W[0,0,:,0])
     # print("agg.")
-
+    # print("W.shape, x.shape, I.shape: ",W.shape, x.shape, I.shape)
 
     # th.save(W,"w.pth")
     # exit(0)
@@ -250,6 +252,7 @@ class N3AggregationBase(nn.Module):
         m, e = ye.shape[1:]
         o = I.shape[2]
         k = self.k
+        # print("x.shape: ",x.shape)
 
         assert((b,n,e) == xe.shape)
         assert((b,m,e) == ye.shape)
@@ -322,6 +325,8 @@ class N3Aggregation2D(nn.Module):
         x_patch, padding = ops.im2patch(x, self.patchsize, self.stride,
                                         None, returnpadding=True)
         xe_patch = ops.im2patch(xe, self.patchsize, self.stride, self.padding)
+        # print("x_patch.shape: ",x_patch.shape)
+        # print("xe_patch.shape: ",xe_patch.shape)
         if y is None:
             # print("y is None.")
             y = x
@@ -357,6 +362,8 @@ class N3Aggregation2D(nn.Module):
 
         # Get nearest neighbor volumes
         # z  -> b m1*m2 c*p1*p2 k
+        # print("x_patch.shape: ",x_patch.shape)
+        # print("xe_patch.shape: ",xe_patch.shape)
         z_patch = self.aggregation(x_patch, xe_patch, ye_patch, I, log_temp=log_temp_patch)
         z_patch = z_patch.permute(0,1,3,2).contiguous().view(b,m1,m2,k*c,p1,p2).permute(0,3,4,5,1,2).contiguous()
 
@@ -438,3 +445,44 @@ def index_neighbours(xe_patch, ye_patch, s, exclude_self=True):
     I = index_neighbours_cache[key]
     I = I.repeat(b,1,1)
     return Variable(I, requires_grad=False)
+
+def index_with_shape(b,m1,m2,n1,n2,dev,s,exclude_self=True):
+    """
+    
+    s: neighborhood size
+
+    """
+    o = s**2
+    dev = xe_patch.get_device()
+    key = "{}_{}_{}_{}_{}_{}_{}".format(n1,n2,m1,m2,s,exclude_self, dev)
+
+    # -- create --
+    I = th.empty(1,m1*m2,o, device=dev, dtype=th.int64)
+
+    # -- s range --
+    ih = th.tensor(range(s), device=dev, dtype=th.int64).view(1,1,s,1)
+    iw = th.tensor(range(s), device=dev, dtype=th.int64).view(1,1,1,s)*n2
+
+    # -- m range --
+    i = th.tensor(range(m1), device=dev, dtype=th.int64).view(m1,1,1,1)
+    j = th.tensor(range(m2), device=dev, dtype=th.int64).view(1,m2,1,1)
+
+    # -- init --
+    ch = (i-s//2).clamp(0,n1-s)
+    cw = (j-s//2).clamp(0,n2-s)
+
+    # -- index --
+    cidx = ch*n2+cw
+    midx = (i*m2+j).view(m1,m2,1)
+
+    # -- fill I --
+    mI = cidx + ih + iw
+    mI = mI.view(m1,m2,-1)
+    mI = mI[mI!=midx].view(m1*m2,-1)
+    I[0,:,:] = mI
+
+
+    # -- reshape --
+    I = I.repeat(b,1,1)
+    return Variable(I, requires_grad=False)
+

@@ -51,6 +51,7 @@ class N3NetLit(pl.LightningModule):
                  scheduler="default",task="denoise",uuid="default"):
         super().__init__()
         self.model = n3net.get_deno_model(**model_cfg)
+        self.model.train()
         self.model_name = model_cfg.model_name
         self.sigma = model_cfg.sigma
         self.batch_size = batch_size
@@ -97,9 +98,12 @@ class N3NetLit(pl.LightningModule):
         return flows
 
     def configure_optimizers(self):
-        optim = th.optim.Adam(self.parameters(),lr=self.lr_init)
+        print(self.lr_init,self.weight_decay)
+        optim = th.optim.Adam(self.parameters(),lr=self.lr_init,
+                              weight_decay=self.weight_decay)
         StepLR = th.optim.lr_scheduler.StepLR
-        scheduler = StepLR(optim, step_size=50, gamma=0.1)
+        ExponentialLR = th.optim.lr_scheduler.ExponentialLR
+        scheduler = ExponentialLR(optim,gamma=0.995) # (.995)^50 ~= .78
         return [optim], [scheduler]
 
     def training_step(self, batch, batch_idx):

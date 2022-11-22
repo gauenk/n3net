@@ -3,6 +3,7 @@
 # -- misc --
 import sys,os,copy
 from pathlib import Path
+from easydict import EasyDict as edict
 
 # -- torch --
 import torch as th
@@ -17,17 +18,20 @@ from .n3net import N3Net
 from n3net.utils.misc import optional
 from n3net.utils.model_utils import load_checkpoint,select_sigma,get_model_weights
 
-def load_model(mtype,sigma,cfg=None):
+def load_model(cfg=None):
+    mtype = optional(cfg,"model_type","denoising")
     if mtype == "denoising":
-        return load_model_deno(sigma,cfg)
+        return load_model_deno(cfg)
     elif mtype == "sr":
         raise NotImplementedError("")
     else:
         raise ValueError("")
 
-def load_model_deno(sigma,cfg):
+def load_model_deno(cfg):
 
     # -- misc --
+    cfg = edict(cfg)
+    sigma = cfg.sigma
     device = optional(cfg,'device','cuda:0')
     patchsize = optional(cfg,'patchsize',80)
     nfeatures_interm = optional(cfg,"nfeatures_interm",8)

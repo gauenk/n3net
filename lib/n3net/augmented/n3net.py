@@ -7,13 +7,38 @@ Please see the file LICENSE.txt for the license governing this code.
 '''
 
 import math
-
+import torch as th
 import torch.nn as nn
+from . import nl_agg
 
-from . import non_local
+# class Conv2dFlops(nn.Module):
+#     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
+#                  padding=0,bais=True):
+#         self.super().__init__()
+#         self.in_channels = in_channels
+#         self.out_channels = out_channels
+#         self.kernel_size = kernel_size
+#         self.stride = stride
+#         self.padding = padding
+#         self.bias = bais
+#         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
+#                               stride=stride, padding=padding, bias=bias)
+#     def forward(self,img):
+#         return self.conv(img)
+
+#     def flops(self, H, W):
+#         flops = H*W*self.in_channels*self.out_channels*(self.kernel_size**2+self.bias)
+#         return flops
+
+# class BatchNormFlops(nn.Module):
+#     def __init__(self, in_channels, out_channels):
+#         pass
+    # def
+    # flops += H*W*self.out_channel
 
 def convnxn(in_planes, out_planes, kernelsize, stride=1, bias=False):
     padding = kernelsize//2
+    # return Conv2dFlops(in_planes, out_planes, kernel_size=kernelsize, stride=stride, padding=padding, bias=bias)
     return nn.Conv2d(in_planes, out_planes, kernel_size=kernelsize, stride=stride, padding=padding, bias=bias)
 
 def dncnn_batchnorm_init(m, kernelsize=3, b_min=0.025):
@@ -127,8 +152,9 @@ class N3Block(nn.Module):
     r"""
     N3Block operating on a 2D images
     """
-    def __init__(self, nplanes_in, k, patchsize=10, stride=5,
-                 nl_match_window=15,
+    def __init__(self, nplanes_in,
+                 k=7, patchsize=10, stride=1, dilation=1,
+                 ws=29, wt=0, pt=1, batch_size=None,
                  temp_opt={}, embedcnn_opt={}):
         r"""
         :param nplanes_in: number of input features
@@ -142,14 +168,22 @@ class N3Block(nn.Module):
         :param embedcnn_opt: options for the embedding cnn, also shared by temperature cnn
         """
         super(N3Block, self).__init__()
-        self.patchsize = patchsize
-        self.stride = stride
 
-        # patch embedding
+        # -- init --
+        self.k = k
+        self.ps = patchsize
+        self.patchsize = patchsize
+        self.pt = pt
+        self.stride = stride
+        self.dilation = dilation
+        self.batch_size = batch_size
+        self.ws,self.wt = ws,wt
+
+        # -- patch embedding --
         embedcnn_opt["nplanes_in"] = nplanes_in
         self.embedcnn = cnn_from_def(embedcnn_opt)
 
-        # temperature cnn
+        # -- temperature cnn --
         with_temp = temp_opt.get("external_temp")
         if with_temp:
             tempcnn_opt = dict(**embedcnn_opt)
@@ -158,30 +192,41 @@ class N3Block(nn.Module):
         else:
             self.tempcnn = None
 
+        # -- n3agg --
         self.nplanes_in = nplanes_in
         self.nplanes_out = (k+1) * nplanes_in
+        self.n3aggregation = nl_agg.N3Aggregation2D(
+            k=k, patchsize=patchsize, stride=stride, dilation=dilation,
+            ws=ws, wt=wt, pt=pt, batch_size=batch_size, temp_opt=temp_opt)
 
-        indexer = lambda xe_patch,ye_patch: non_local.index_neighbours(xe_patch, ye_patch, nl_match_window, exclude_self=True)
-        self.n3aggregation = non_local.N3Aggregation2D(indexing=indexer, k=k,
-                patchsize=patchsize, stride=stride, temp_opt=temp_opt)
-        self.k = k
-
+        self.tsize = 10
         self.reset_parameters()
 
-    def forward(self, x):
+    def forward(self, x, flows):
         if self.k <= 0:
             return x
 
+        # print("x.shape: ",x.shape)
+        # -- temporal chop if needed [not search's fault; batch-norm's ;) ] --
+        # nframes = x.shape[0]
+        # if nframes > self.tsize:
+        #     xe = temporal_chop(x,self.tsize,self.embedcnn)
+        # else:
+        #     xe = self.embedcnn(x)
         xe = self.embedcnn(x)
-        ye = xe
 
+        ye = xe
         xg = x
         if self.tempcnn is not None:
+            # if nframes > self.tsize:
+            #     log_temp = temporal_chop(x,self.tsize,self.tempcnn)
+            # else:
+            #     log_temp = self.tempcnn(x)
             log_temp = self.tempcnn(x)
         else:
             log_temp = None
 
-        x = self.n3aggregation(xg,xe,ye,log_temp=log_temp)
+        x = self.n3aggregation(xg,xe,ye,None,log_temp,flows)
         return x
 
     def reset_parameters(self):
@@ -193,7 +238,11 @@ class N3Net(nn.Module):
     r"""
     A N3Net interleaves DnCNNS for local processing with N3Blocks for non-local processing
     """
-    def __init__(self, nplanes_in, nplanes_out, nplanes_interm, nblocks, block_opt, nl_opt, residual=False):
+    def __init__(self, nplanes_in, nplanes_out, nplanes_interm, nblocks,
+                 residual, block_opt, nl_temp_opt, embedcnn_opt,
+                 ws=29, wt=0, k=7, stride=5, dilation=1,
+                 patchsize=10, pt=1, batch_size=None):
+
         r"""
         :param nplanes_in: number of input features
         :param nplanes_out: number of output features
@@ -208,13 +257,17 @@ class N3Net(nn.Module):
         self.nplanes_out = nplanes_out
         self.nblocks = nblocks
         self.residual = residual
+        # self.tsize = 10
+        # print(nplanes_in,nplanes_out,nplanes_interm)
 
         nin = nplanes_in
-        cnns = []
-        nls = []
+        cnns,nls = [],[]
         for i in range(nblocks-1):
             cnns.append(DnCNN(nin, nplanes_interm, **block_opt))
-            nl = N3Block(nplanes_interm, **nl_opt)
+            nl = N3Block(nplanes_interm,k=k,patchsize=patchsize,
+                         stride=stride,dilation=dilation,
+                         ws=ws,wt=wt,pt=pt,batch_size=batch_size,
+                         temp_opt=nl_temp_opt, embedcnn_opt=embedcnn_opt)
             nin = nl.nplanes_out
             nls.append(nl)
 
@@ -224,17 +277,22 @@ class N3Net(nn.Module):
         self.nls = nn.Sequential(*nls)
         self.blocks = nn.Sequential(*cnns)
 
-    def forward(self, x, flows=None): # flows_is_none
-        # print("original.")
+    def forward(self, x, flows=None):
+        # print("refactored.")
         shortcut = x
         for i in range(self.nblocks-1):
+            # nframes = x.shape[0]
+            # if nframes > self.tsize:
+            #     x = temporal_chop(x,self.tsize,self.blocks[i])
+            # else:
+            #    x = self.blocks[i](x)
             x = self.blocks[i](x)
-            x = self.nls[i](x)
+            x = self.nls[i](x, flows)
 
         x = self.blocks[-1](x)
-
         if self.residual:
             nshortcut = min(self.nplanes_in, self.nplanes_out)
             x[:,:nshortcut,:,:] = x[:,:nshortcut,:,:] + shortcut[:,:nshortcut,:,:]
 
         return x
+

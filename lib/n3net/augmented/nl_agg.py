@@ -11,9 +11,11 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 import dnls
+import n3net
 from dnls.utils.pads import comp_pads
 from n3net.utils.misc import get_flows
 from .non_local import NeuralNearestNeighbors
+from .non_local import vid_index_neighbours
 
 class N3AggregationBase(nn.Module):
     r"""
@@ -30,7 +32,7 @@ class N3AggregationBase(nn.Module):
         self.nnn = NeuralNearestNeighbors(k, temp_opt=temp_opt)
 
     def forward(self, x, xe, ye, log_temp,
-                search, unfold, fold, wpsum,
+                search, unfold, fold,
                 qindex, nbatch_i):
         r"""
         :param x: database items, shape BxNxF
@@ -70,11 +72,27 @@ class N3AggregationBase(nn.Module):
 
         nheads,b,_ = W.shape
         c = x.shape[-3]
-        ps = wpsum.ps
+        # ps = wpsum.ps
         # print("inds.shape: ",inds.shape)
         # print("x.shape,W.shape,inds.shape: ",x.shape,W.shape,inds.shape)
-        z_patches = wpsum(x[None,:],W[None,:],inds[None,:]) # b self.k c h w
+        # z_patches = wpsum(x[None,:],W[None,:],inds[None,:]) # b self.k c h w
         # print("z_patches.shape: ",z_patches.shape)
+
+        # -- get indices --
+        b = x.shape[0]
+        t = x.shape[1]
+        s = 15
+        n1 = (H-1)//stride+1
+        n2 = (W-1)//stride+1
+        m1,m2 = n1,n2
+        I = vid_index_neighbours(b,t,n1,n2,m1,m2,s,dev,True)
+
+        # -- unfold and opt --
+        x_patches = unfold(xe)
+        print("x_patches.shape: ",x_patches.shape)
+        exit(0)
+        z_patches = n3net.ops.indexed_matmul_2_efficient(x_patches, W,
+                                                         I, chunk_size=256)
 
         # -- fold into video --
         ps = unfold.ps
@@ -128,6 +146,7 @@ class N3Aggregation2D(nn.Module):
         # -- flows --
         fflow,bflow = get_flows(flows,(1,)+x.shape,x.device)
         # fflow,bflow = fflow[None,:],bflow[None,:]
+        # I = self.get_vid_index(x.shape)
 
         # -- add padding --
         x = F.pad(x,(1,1,1,1))
@@ -188,10 +207,10 @@ class N3Aggregation2D(nn.Module):
         h_off,w_off = 0,0
         # adj = 0
         # h_off,w_off = -3,-3
-        wpsum = dnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
-                                                    dilation=dil, adj=adj,
-                                                    exact=exact,rbwd=True,
-                                                    reflect_bounds=reflect_bounds)
+        # wpsum = dnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
+        #                                             dilation=dil, adj=adj,
+        #                                             exact=exact,rbwd=True,
+        #                                             reflect_bounds=reflect_bounds)
 
         # -- batching --
         # rm_pix = 0#dil*(ps-1)# if only_full else dil*(ps//2-1)
@@ -211,6 +230,7 @@ class N3Aggregation2D(nn.Module):
             return y if y is not None else x
 
         # -- run for batches --
+        assert nbatches == 1
         for batch in range(nbatches):
 
             # -- batch info --
@@ -219,7 +239,7 @@ class N3Aggregation2D(nn.Module):
 
             # -- exec --
             self.aggregation(x,xe,ye,log_temp,
-                             search,unfold,fold,wpsum,
+                             search,unfold,fold,
                              qindex,nbatch_i)
 
         # -- final steps --

@@ -61,13 +61,13 @@ def run_exp(cfg):
     imax = 255.
 
     # -- optional load trained weights --
-    load_trained_state(model,cfg.sigma,cfg.use_train)
+    load_trained_state(model,cfg.model_name,cfg.sigma,cfg.use_train)
 
     # -- data --
     data,loaders = data_hub.sets.load(cfg)
     frame_start = optional(cfg,"frame_start",0)
     frame_end = optional(cfg,"frame_end",-1)
-    indices = data_hub.filter_subseq(data,cfg.vid_name,frame_start,frame_end)
+    indices = data_hub.filter_subseq(data[cfg.dset],cfg.vid_name,frame_start,frame_end)
 
     # # -- optional filter --
     # groups = data.te.groups
@@ -84,7 +84,7 @@ def run_exp(cfg):
         print("index: ",index)
 
         # -- unpack --
-        sample = data.te[index]
+        sample = data[cfg.dset][index]
         region = sample['region']
         noisy,clean = sample['noisy'],sample['clean']
         noisy,clean = noisy.to(cfg.device),clean.to(cfg.device)
@@ -188,7 +188,7 @@ def get_fwd_fxn(cfg,model):
     fwd_fxn = tchop_p # rename
     return fwd_fxn
 
-def load_trained_state(model,sigma,use_train):
+def load_trained_state(model,name,sigma,use_train):
 
     # -- skip if needed --
     if not(use_train == "true"): return
@@ -196,23 +196,39 @@ def load_trained_state(model,sigma,use_train):
 
     if ca_fwd == "dnls_k":
         if abs(sigma-50.) < 1e-10:
-            model_path = "output/checkpoints/26cc2011-dca1-43ae-aa41-0da32a259274-epoch=58.ckpt"
-            # model_path = "output/checkpoints/26cc2011-dca1-43ae-aa41-0da32a259274-epoch=58.ckpt"
-            # model_path = "output/checkpoints/b955079e-3224-40c8-8e8b-1e719aa0c8d7-epoch=28.ckpt"
-            # model_path = "output/checkpoints/c4a39d49-d006-4015-91e8-feece2625beb-epoch=28.ckpt" # 50.
+            model_path = "b118f3a8-f1bf-43b5-9853-b0d346c548a9-epoch=02.ckpt"
+            # model_path = "26cc2011-dca1-43ae-aa41-0da32a259274-epoch=58.ckpt"
+            # model_path = "26cc2011-dca1-43ae-aa41-0da32a259274-epoch=58.ckpt"
+            # model_path = "b955079e-3224-40c8-8e8b-1e719aa0c8d7-epoch=28.ckpt"
+            # model_path = "c4a39d49-d006-4015-91e8-feece2625beb-epoch=28.ckpt" # 50.
         else:
-            model_path = "output/checkpoints/d2e0f65a-1fb2-4667-af31-3c3fe8e36ef0-epoch=58.ckpt"
-            # model_path = "output/checkpoints/d2e0f65a-1fb2-4667-af31-3c3fe8e36ef0-epoch=02-val_loss=8.35e-04.ckpt"
-            # model_path = "output/checkpoints/c7797a88-84d5-47e3-a76c-e3f867476583-epoch=28.ckpt"
-            # model_path = "output/checkpoints/59399328-ac47-4c81-a590-78afea4e5342-epoch=08.ckpt" # 25.
-        # model_path = "output/checkpoints/2539a251-8233-49a8-bb4f-db68e8c96559-epoch=99.ckpt"
-        # model_path = "output/checkpoints/2539a251-8233-49a8-bb4f-db68e8c96559-epoch=81-val_loss=1.24e-03.ckpt"
-        # model_path = "output/checkpoints/2539a251-8233-49a8-bb4f-db68e8c96559-epoch=38-val_loss=1.15e-03.ckpt"
-        # model_path = "output/checkpoints/2539a251-8233-49a8-bb4f-db68e8c96559-epoch=26.ckpt"
+            if name == "original":
+                # model_path = "98a8f7b0-828b-413c-a61d-208c2accd630-epoch=48.ckpt"
+                model_path = "98a8f7b0-828b-413c-a61d-208c2accd630-epoch=04-val_loss=8.97e-04.ckpt"
+            else:
+                # model_path = "9587c811-0efc-44dc-be5b-5ccfa4eb819c-epoch=41.ckpt"
+                # model_path = "70215fee-2f73-4972-98bf-edc547bb31a0-epoch=41.ckpt"
+                # model_path = "b118f3a8-f1bf-43b5-9853-b0d346c548a9-epoch=02.ckpt"
+                model_path = "12b10a3f-0148-4e39-a5c3-812ae0bab529-epoch=05.ckpt"
+                # model_path = "b118f3a8-f1bf-43b5-9853-b0d346c548a9-epoch=02.ckpt"
+            # model_path = "9587c811-0efc-44dc-be5b-5ccfa4eb819c-epoch=19.ckpt"
+            # model_path = "97cab11c-f0f5-4563-88bb-5051d730931e-epoch=68.ckpt"
+            # model_path = "97cab11c-f0f5-4563-88bb-5051d730931e-epoch=52.ckpt"
+            # model_path = "8c0c2ca0-28d4-4625-8910-8595a9068970-epoch=04-val_loss=8.36e-04.ckpt"
+            # model_path = "8c0c2ca0-28d4-4625-8910-8595a9068970-epoch=44.ckpt"
+            # model_path = "d2e0f65a-1fb2-4667-af31-3c3fe8e36ef0-epoch=58.ckpt"
+            # model_path = "d2e0f65a-1fb2-4667-af31-3c3fe8e36ef0-epoch=02-val_loss=8.35e-04.ckpt"
+            # model_path = "c7797a88-84d5-47e3-a76c-e3f867476583-epoch=28.ckpt"
+            # model_path = "59399328-ac47-4c81-a590-78afea4e5342-epoch=08.ckpt" # 25.
+        # model_path = "2539a251-8233-49a8-bb4f-db68e8c96559-epoch=99.ckpt"
+        # model_path = "2539a251-8233-49a8-bb4f-db68e8c96559-epoch=81-val_loss=1.24e-03.ckpt"
+        # model_path = "2539a251-8233-49a8-bb4f-db68e8c96559-epoch=38-val_loss=1.15e-03.ckpt"
+        # model_path = "2539a251-8233-49a8-bb4f-db68e8c96559-epoch=26.ckpt"
     elif ca_fwd == "default":
-        model_path = "output/checkpoints/dec78611-36a7-4a9e-8420-4e60fe8ea358-epoch=91-val_loss=6.63e-04.ckpt"
+        model_path = "dec78611-36a7-4a9e-8420-4e60fe8ea358-epoch=91-val_loss=6.63e-04.ckpt"
     else:
         raise ValueError(f"Uknown ca_fwd [{ca_fwd}]")
+    model_path = str(Path("output/checkpoints/") / model_path)
 
     # -- load model state --
     print("Loading state: ",model_path)
@@ -243,7 +259,7 @@ def main():
     cfg = configs.default_test_vid_cfg()
     cfg.seed = 123
     cfg.bw = True
-    cfg.nframes = 7
+    cfg.nframes = 6
     cfg.isize = "none"
     # cfg.isize = "512_512"
     cfg.isize = "256_256"
@@ -270,8 +286,11 @@ def main():
     # sigmas = [50.]
     # ws,wt = [29],[3]
     # sigmas = [50.]
-    ws,wt = [29],[3]
-    dnames,use_train = ["set8"],["true"]#,"false"]
+    ws,wt = [21],[3]
+    # ws,wt = [15],[0]
+    dnames = ["set8"]
+    use_train = ["true"]
+    # use_train = ["true","false"]
     # sigmas = [50.]
     # ws,wt,k,bs,stride = [15],[3],[7],[32],[5]
     # wt,sigmas = [0],[30.]
@@ -284,7 +303,10 @@ def main():
     #              "hypersmooth","park_joy","rafting","touchdown"]
     flow = ["true"]
     # flow = ["true","false"]
-    model_names,adapt_mtypes = ["refactored"],["rand"]
+    model_names = ["refactored","original"]
+    # model_names = ["original"]
+    # model_names = ["refactored"]
+    adapt_mtypes = ["rand"]
     exp_lists = {"dname":dnames,"vid_name":vid_names,"sigma":sigmas,
                  "internal_adapt_nsteps":internal_adapt_nsteps,
                  "internal_adapt_nepochs":internal_adapt_nepochs,

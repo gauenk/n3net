@@ -203,10 +203,12 @@ def main():
     cache.clear()
 
     # -- create exp list --
-    ws,wt,k = [29],[3],[7]
+    ws,wt,k = [21],[3],[7]
+    # ws,wt,k = [21],[0],[7] # no "T"
     # sigma = [50.]#,30.,10.]
     sigma = [25.]#,30.,10.]
-    isize = ["128_128"]
+    isize = ["156_156"]
+    # isize = ["128_128"]
     ca_fwd_list = ["dnls_k"]
     exp_lists = {"sigma":sigma,"ws":ws,"wt":wt,"k":k,
                  "isize":isize,"ca_fwd":ca_fwd_list}
@@ -231,29 +233,31 @@ def main():
 
     # -- group with default --
     cfg = configs.default_train_cfg()
-    cfg.ndevices = 1
+    cfg.ndevices = 2
     cfg.dname = "davis_cropped"
     cfg.bw = True
     cfg.nsamples_tr = 0
     cfg.nsamples_val = 30
-    cfg.nepochs = 100
-    cfg.aug_training_scales = [0.5,0.75,1.]
+    cfg.nepochs = 200
+    cfg.aug_training_scales = [1.]
+    # cfg.aug_training_scales = [0.5,0.75,1.]
     cfg.aug_training_flips = True
     cfg.accumulate_grad_batches = 1
     cfg.limit_train_batches = .025
     cfg.persistent_workers = True
-    cfg.flow = False
+    cfg.flow = True
     cfg.batch_size = 1
-    cfg.batch_size_tr = 6
+    cfg.batch_size_tr = 3
     cfg.batch_size_val = 1
     cfg.batch_size_te = 1
-    cfg.lr_init = 1e-6
-    cfg.weight_decay = 0.00
+    cfg.lr_init = 1e-5
+    cfg.weight_decay = 1e-4
     cfg.nframes = 5
     cfg.nframes_val = 5
     cfg.task = "denoising"
     cfg.num_workers = 4
     cfg.model_name = "refactored"
+    # cfg.model_name = "original"
     cache_io.append_configs(exps,cfg) # merge the two
 
     # -- launch each experiment --
