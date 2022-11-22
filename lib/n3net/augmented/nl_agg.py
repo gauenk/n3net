@@ -15,7 +15,7 @@ import n3net
 from dnls.utils.pads import comp_pads
 from n3net.utils.misc import get_flows
 from .non_local import NeuralNearestNeighbors
-from .non_local import vid_index_neighbours
+from .non_local import vid_index_neighbours,vid_to_raster_inds
 
 class N3AggregationBase(nn.Module):
     r"""
@@ -79,24 +79,40 @@ class N3AggregationBase(nn.Module):
         # print("z_patches.shape: ",z_patches.shape)
 
         # -- get indices --
-        b = x.shape[0]
-        t = x.shape[1]
-        s = 15
-        n1 = (H-1)//stride+1
-        n2 = (W-1)//stride+1
-        m1,m2 = n1,n2
-        I = vid_index_neighbours(b,t,n1,n2,m1,m2,s,dev,True)
+        # print("x.shape: ",x.shape)
+        dev = x.device
+        t,c,iH,iW = x.shape
+        # b = x.shape[0]
+        # t = x.shape[1]
+        # print("x.shape: ",x.shape)
+        stride = 5
+        # b = 1
+        # s = 15
+        # n1 = (iH-1)//stride+1
+        # n2 = (iW-1)//stride+1
+        # m1,m2 = n1,n2
+        # I = vid_index_neighbours(b,t,n1,n2,m1,m2,s,dev,True)
+        # print("I.shape: ",I.shape)
+        I = vid_to_raster_inds(inds,iH,iW,stride,dev)
 
         # -- unfold and opt --
-        x_patches = unfold(xe)
-        print("x_patches.shape: ",x_patches.shape)
-        exit(0)
+        x_patches = unfold(x)
+        # print("W.shape: ",W.shape)
+        # print("x_patches.shape: ",x_patches.shape)
+        W = rearrange(W,"k thw s -> 1 thw s k")
+        x_patches = rearrange(x_patches,'thw 1 1 c ph pw -> 1 thw (c ph pw)')
+        # print("[b] W.shape: ",W.shape)
+        # print("[b] x_patches.shape: ",x_patches.shape)
+        # exit(0)
         z_patches = n3net.ops.indexed_matmul_2_efficient(x_patches, W,
                                                          I, chunk_size=256)
+        # print("z_patches.shape: ",z_patches.shape)
+        # exit(0)
 
         # -- fold into video --
         ps = unfold.ps
-        shape_str = 'b k q c ph pw -> b q 1 1 (k c) ph pw'
+        # shape_str = 'b k q c ph pw -> b q 1 1 (k c) ph pw'
+        shape_str = 'b q (c ph pw) k -> b q 1 1 (k c) ph pw'
         z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
         fold(z_patches,qindex)
 

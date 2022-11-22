@@ -385,12 +385,29 @@ def vid_index_neighbours(b,t,n1,n2,m1,m2,s,dev,exclude_self=True):
         I = []
         for ti in range(t):
             It = index_neighbours(1, n1, n2, m1, m2, s, dev, exclude_self=True)
-            print("It.shape: ",It.shape)
-            I.append(It)
-        I = th.cat(I)
+            I.append(It*n*(ti+1))
+        I = th.cat(I,1)
         index_neighbours_cache[key] = I
     I = index_neighbours_cache[key]
     I = I.repeat(b,1,1)
     return Variable(I, requires_grad=False)
 
+def vid_to_raster_inds(inds,iH,iW,stride,dev):
+
+    # -- num search --
+    nH = (iH-1)//stride+1
+    nW = (iW-1)//stride+1
+    nHW = nH * nW
+
+    # -- rasterized --
+    tI = inds[...,0]
+    hI = th.div(inds[...,1],stride,rounding_mode="floor")
+    wI = th.div(inds[...,2],stride,rounding_mode="floor")
+    rI = tI * nH * nW + hI * nW + wI
+
+    # -- reshape --
+    rI = rI[None,:].contiguous()
+    rI = rI.type(th.int64)
+
+    return rI
 

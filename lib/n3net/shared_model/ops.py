@@ -54,8 +54,9 @@ class IndexedMatmul2Efficient(torch.autograd.Function):
         ctx.save_for_backward(x, y, I)
         ctx.chunk_size = chunk_size
         b,_,o,k = y.shape # b m o k
-        # print("x.shape: ",x.shape)
-        # print("y.shape: ",y.shape,chunk_size)
+        print("x.shape: ",x.shape)
+        print("y.shape: ",y.shape,chunk_size)
+        print("I.shape: ",I.shape)
         n,e = x.shape[1:3] # b n f
         m = I.shape[1] # b m o
         x_interm = x.view(b,1,n,e).detach()

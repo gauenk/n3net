@@ -44,12 +44,10 @@ def run_exp(cfg):
     results.psnrs = []
     results.ssims = []
     results.noisy_psnrs = []
-    results.adapt_psnrs = []
     results.deno_fns = []
     results.vid_frames = []
     results.vid_name = []
     results.timer_flow = []
-    results.timer_adapt = []
     results.timer_deno = []
     results.mem_res = []
     results.mem_alloc = []
@@ -113,23 +111,6 @@ def run_exp(cfg):
             flows = flow.run_zeros(noisy[None,:])
         timer.stop("flow")
 
-        # -- internal adaptation --
-        timer.start("adapt")
-        run_internal_adapt = cfg.internal_adapt_nsteps > 0
-        run_internal_adapt = run_internal_adapt and (cfg.internal_adapt_nepochs > 0)
-        adapt_psnrs = [0.]
-        if run_internal_adapt:
-            adapt_psnrs = model.run_internal_adapt(
-                noisy,cfg.sigma,flows=flows,
-                ws=cfg.ws,wt=cfg.wt,batch_size=batch_size,
-                nsteps=cfg.internal_adapt_nsteps,
-                nepochs=cfg.internal_adapt_nepochs,
-                sample_mtype=cfg.adapt_mtype,
-                clean_gt = clean,
-                region_gt = None
-            )
-        timer.stop("adapt")
-
         # -- denoise --
         fwd_fxn = get_fwd_fxn(cfg,model)
         # tsize = 10
@@ -159,7 +140,6 @@ def run_exp(cfg):
         results.psnrs.append(psnrs)
         results.ssims.append(ssims)
         results.noisy_psnrs.append(noisy_psnrs)
-        results.adapt_psnrs.append(adapt_psnrs)
         results.deno_fns.append(deno_fns)
         results.vid_frames.append(vid_frames)
         results.vid_name.append([cfg.vid_name])
@@ -274,8 +254,6 @@ def main():
     cfg.ps = 10
 
     # -- get mesh --
-    internal_adapt_nsteps = [300]
-    internal_adapt_nepochs = [0]
     k,bs,stride = [7],[28*1024],[5]
     # ws,wt,k,bs,stride = [20],[0],[7],[28*1024],[5]
     # ws,wt,k,bs,stride = [29],[3],[7],[28*1024],[5]
@@ -289,7 +267,8 @@ def main():
     ws,wt = [21],[3]
     # ws,wt = [15],[0]
     dnames = ["set8"]
-    use_train = ["true"]
+    # use_train = ["true"]
+    use_train = ["false"]
     # use_train = ["true","false"]
     # sigmas = [50.]
     # ws,wt,k,bs,stride = [15],[3],[7],[32],[5]
@@ -303,14 +282,12 @@ def main():
     #              "hypersmooth","park_joy","rafting","touchdown"]
     flow = ["true"]
     # flow = ["true","false"]
-    model_names = ["refactored","original"]
+    model_names = ["original","augmented"]
+    # model_names = ["refactored","original"]
     # model_names = ["original"]
     # model_names = ["refactored"]
-    adapt_mtypes = ["rand"]
     exp_lists = {"dname":dnames,"vid_name":vid_names,"sigma":sigmas,
-                 "internal_adapt_nsteps":internal_adapt_nsteps,
-                 "internal_adapt_nepochs":internal_adapt_nepochs,
-                 "flow":flow,"ws":ws,"wt":wt,"adapt_mtype":adapt_mtypes,
+                 "flow":flow,"ws":ws,"wt":wt,
                  "use_train":use_train,"stride":stride,
                  "ws":ws,"wt":wt,"k":k, "bs":bs, "model_name":model_names}
     exps_a = cache_io.mesh_pydicts(exp_lists) # create mesh
