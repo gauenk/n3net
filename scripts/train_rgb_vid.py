@@ -207,21 +207,18 @@ def main():
     # ws,wt,k = [21],[0],[7] # no "T"
     # sigma = [50.]#,30.,10.]
     sigma = [25.]#,30.,10.]
-    isize = ["156_156"]
-    # isize = ["128_128"]
-    ca_fwd_list = ["dnls_k"]
+    # isize = ["156_156"]
+    isize = ["128_128"]
     exp_lists = {"sigma":sigma,"ws":ws,"wt":wt,"k":k,
-                 "isize":isize,"ca_fwd":ca_fwd_list}
+                 "isize":isize}
     exps_a = cache_io.mesh_pydicts(exp_lists) # create mesh
 
     # -- default --
-    # exp_lists['ca_fwd'] = ['default']
     # exp_lists['flow'] = ['false']
     # exp_lists['isize'] = ['128_128']
     # exps_b = cache_io.mesh_pydicts(exp_lists) # create mesh
 
     # -- try training "dnls_k" without flow --
-    # exp_lists['ca_fwd'] = ['dnls_k']
     # exp_lists['flow'] = ['false']
     # exps_c = cache_io.mesh_pydicts(exp_lists) # create mesh
 
@@ -250,14 +247,15 @@ def main():
     cfg.batch_size_tr = 3
     cfg.batch_size_val = 1
     cfg.batch_size_te = 1
-    cfg.lr_init = 1e-5
-    cfg.weight_decay = 1e-4
+    cfg.lr_init = 1e-5 / 10.
+    cfg.weight_decay = 1e-4 / 100.
     cfg.nframes = 5
     cfg.nframes_val = 5
     cfg.task = "denoising"
     cfg.num_workers = 4
-    cfg.model_name = "refactored"
+    # cfg.model_name = "refactored"
     # cfg.model_name = "original"
+    cfg.model_name = "augmented"
     cache_io.append_configs(exps,cfg) # merge the two
 
     # -- launch each experiment --
@@ -294,12 +292,10 @@ def main():
 
     # -- load res --
     uuids = list(records['uuid'].to_numpy())
-    cas = list(records['ca_fwd'].to_numpy())
     fns = list(records['init_val_results_fn'].to_numpy())
     res_a = read_pickle(fns[0])
     res_b = read_pickle(fns[1])
     print(uuids)
-    print(cas)
     print(res_a['test_psnr'])
     print(res_a['test_index'])
     print(res_b['test_psnr'])
@@ -308,7 +304,7 @@ def main():
     fns = list(records['val_results_fn'].to_numpy())
     res_a = read_pickle(fns[0])
     res_b = read_pickle(fns[1])
-    print(uuids,cas,fns)
+    print(uuids,fns)
     print(res_a['test_psnr'])
     print(res_a['test_index'])
     print(res_b['test_psnr'])

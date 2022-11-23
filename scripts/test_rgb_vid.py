@@ -183,14 +183,17 @@ def load_trained_state(model,name,sigma,use_train):
             # model_path = "c4a39d49-d006-4015-91e8-feece2625beb-epoch=28.ckpt" # 50.
         else:
             if name == "original":
-                # model_path = "98a8f7b0-828b-413c-a61d-208c2accd630-epoch=48.ckpt"
-                model_path = "98a8f7b0-828b-413c-a61d-208c2accd630-epoch=04-val_loss=8.97e-04.ckpt"
+                model_path = "98a8f7b0-828b-413c-a61d-208c2accd630-epoch=48.ckpt"
+                # model_path = "98a8f7b0-828b-413c-a61d-208c2accd630-epoch=04-val_loss=8.97e-04.ckpt"
             else:
                 # model_path = "9587c811-0efc-44dc-be5b-5ccfa4eb819c-epoch=41.ckpt"
                 # model_path = "70215fee-2f73-4972-98bf-edc547bb31a0-epoch=41.ckpt"
                 # model_path = "b118f3a8-f1bf-43b5-9853-b0d346c548a9-epoch=02.ckpt"
-                model_path = "12b10a3f-0148-4e39-a5c3-812ae0bab529-epoch=05.ckpt"
+                # model_path = "12b10a3f-0148-4e39-a5c3-812ae0bab529-epoch=05.ckpt"
                 # model_path = "b118f3a8-f1bf-43b5-9853-b0d346c548a9-epoch=02.ckpt"
+                # model_path = "1397e069-e9ff-47bd-96d1-bc0f7a090f79-epoch=05.ckpt"
+                # model_path = "af5c5ca1-70a2-4356-8084-13204a8bef53-epoch=04.ckpt"
+                model_path = "af5c5ca1-70a2-4356-8084-13204a8bef53-epoch=13.ckpt"
             # model_path = "9587c811-0efc-44dc-be5b-5ccfa4eb819c-epoch=19.ckpt"
             # model_path = "97cab11c-f0f5-4563-88bb-5051d730931e-epoch=68.ckpt"
             # model_path = "97cab11c-f0f5-4563-88bb-5051d730931e-epoch=52.ckpt"
@@ -267,8 +270,8 @@ def main():
     ws,wt = [21],[3]
     # ws,wt = [15],[0]
     dnames = ["set8"]
-    # use_train = ["true"]
-    use_train = ["false"]
+    use_train = ["true","false"]
+    # use_train = ["false"]
     # use_train = ["true","false"]
     # sigmas = [50.]
     # ws,wt,k,bs,stride = [15],[3],[7],[32],[5]
@@ -327,7 +330,8 @@ def main():
 
         # -- logic --
         uuid = cache.get_uuid(exp) # assing ID to each Dict in Meshgrid
-        cache.clear_exp(uuid)
+        if exp.use_train == "true":
+            cache.clear_exp(uuid)
         # if exp.model_name != "refactored":
         #     cache.clear_exp(uuid)
         results = cache.load_exp(exp) # possibly load result

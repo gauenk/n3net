@@ -67,7 +67,7 @@ class N3NetLit(pl.LightningModule):
         self.gen_loger.setLevel("NOTSET")
 
     def forward(self,vid):
-        if self.model_name in ["dnls_k","dnls","refactored"]:
+        if self.model_name in ["dnls_k","dnls","refactored","augmented"]:
             return self.forward_dnls_k(vid)
         elif self.model_name in ["default","original"]:
             return self.forward_default(vid)

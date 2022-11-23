@@ -85,7 +85,7 @@ class N3AggregationBase(nn.Module):
         # b = x.shape[0]
         # t = x.shape[1]
         # print("x.shape: ",x.shape)
-        stride = 5
+        stride = search.stride0#5
         # b = 1
         # s = 15
         # n1 = (iH-1)//stride+1
