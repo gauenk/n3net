@@ -77,6 +77,7 @@ class DnCNN(nn.Module):
         self.kernelsize = kernel
         self.nplanes_residual = None
 
+        print(nplanes_in, features, kernel)
         self.conv1 = convnxn(nplanes_in, features, kernelsize=kernel, bias=True)
         self.bn1 = nn.BatchNorm2d(features) if bn else nn.Sequential()
         self.relu = nn.ReLU(inplace=True)
@@ -155,7 +156,7 @@ class N3Block(nn.Module):
     def __init__(self, nplanes_in,
                  k=7, patchsize=10, stride=1, dilation=1,
                  ws=29, wt=0, pt=1, batch_size=None,
-                 temp_opt={}, embedcnn_opt={}):
+                 use_cts_topk = False, temp_opt={}, embedcnn_opt={}):
         r"""
         :param nplanes_in: number of input features
         :param k: number of neighbors to sample
@@ -178,6 +179,7 @@ class N3Block(nn.Module):
         self.dilation = dilation
         self.batch_size = batch_size
         self.ws,self.wt = ws,wt
+        self.use_cts_topk = use_cts_topk
 
         # -- patch embedding --
         embedcnn_opt["nplanes_in"] = nplanes_in
@@ -194,34 +196,24 @@ class N3Block(nn.Module):
 
         # -- n3agg --
         self.nplanes_in = nplanes_in
-        self.nplanes_out = (k+1) * nplanes_in
+        # self.nplanes_out = (k+1) * nplanes_in
+        k_shape = 7 if self.use_cts_topk else 1
+        self.nplanes_out = (k_shape+1) * nplanes_in # fixed "k == 7"
         self.n3aggregation = nl_agg.N3Aggregation2D(
             k=k, patchsize=patchsize, stride=stride, dilation=dilation,
-            ws=ws, wt=wt, pt=pt, batch_size=batch_size, temp_opt=temp_opt)
+            ws=ws, wt=wt, pt=pt, batch_size=batch_size,
+            use_cts_topk=use_cts_topk, temp_opt=temp_opt)
 
-        self.tsize = 10
         self.reset_parameters()
 
     def forward(self, x, flows):
         if self.k <= 0:
             return x
 
-        # print("x.shape: ",x.shape)
-        # -- temporal chop if needed [not search's fault; batch-norm's ;) ] --
-        # nframes = x.shape[0]
-        # if nframes > self.tsize:
-        #     xe = temporal_chop(x,self.tsize,self.embedcnn)
-        # else:
-        #     xe = self.embedcnn(x)
         xe = self.embedcnn(x)
-
         ye = xe
         xg = x
         if self.tempcnn is not None:
-            # if nframes > self.tsize:
-            #     log_temp = temporal_chop(x,self.tsize,self.tempcnn)
-            # else:
-            #     log_temp = self.tempcnn(x)
             log_temp = self.tempcnn(x)
         else:
             log_temp = None
@@ -241,7 +233,7 @@ class N3Net(nn.Module):
     def __init__(self, nplanes_in, nplanes_out, nplanes_interm, nblocks,
                  residual, block_opt, nl_temp_opt, embedcnn_opt,
                  ws=29, wt=0, k=7, stride=5, dilation=1,
-                 patchsize=10, pt=1, batch_size=None):
+                 patchsize=10, pt=1, batch_size=None, use_cts_topk=False):
 
         r"""
         :param nplanes_in: number of input features
@@ -257,7 +249,6 @@ class N3Net(nn.Module):
         self.nplanes_out = nplanes_out
         self.nblocks = nblocks
         self.residual = residual
-        # self.tsize = 10
         # print(nplanes_in,nplanes_out,nplanes_interm)
 
         nin = nplanes_in
@@ -267,7 +258,9 @@ class N3Net(nn.Module):
             nl = N3Block(nplanes_interm,k=k,patchsize=patchsize,
                          stride=stride,dilation=dilation,
                          ws=ws,wt=wt,pt=pt,batch_size=batch_size,
-                         temp_opt=nl_temp_opt, embedcnn_opt=embedcnn_opt)
+                         temp_opt=nl_temp_opt,
+                         use_cts_topk=use_cts_topk,
+                         embedcnn_opt=embedcnn_opt)
             nin = nl.nplanes_out
             nls.append(nl)
 
@@ -281,11 +274,6 @@ class N3Net(nn.Module):
         # print("refactored.")
         shortcut = x
         for i in range(self.nblocks-1):
-            # nframes = x.shape[0]
-            # if nframes > self.tsize:
-            #     x = temporal_chop(x,self.tsize,self.blocks[i])
-            # else:
-            #    x = self.blocks[i](x)
             x = self.blocks[i](x)
             x = self.nls[i](x, flows)
 

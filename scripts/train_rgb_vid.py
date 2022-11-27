@@ -70,6 +70,7 @@ def launch_training(_cfg):
 
     # -- network --
     model_cfg = n3net.extract_model_io(cfg)
+    print(model_cfg)
     model = N3NetLit(model_cfg,flow=cfg.flow,isize=cfg.isize,
                      batch_size=cfg.batch_size_tr,lr_init=cfg.lr_init,
                      weight_decay=cfg.weight_decay,nepochs=cfg.nepochs,
@@ -203,7 +204,7 @@ def main():
     cache.clear()
 
     # -- create exp list --
-    ws,wt,k = [21],[3],[7]
+    ws,wt,k = [21],[0],[28]
     # ws,wt,k = [21],[0],[7] # no "T"
     # sigma = [50.]#,30.,10.]
     sigma = [25.]#,30.,10.]
@@ -236,23 +237,26 @@ def main():
     cfg.nsamples_tr = 0
     cfg.nsamples_val = 30
     cfg.nepochs = 200
-    cfg.aug_training_scales = [1.]
-    # cfg.aug_training_scales = [0.5,0.75,1.]
+    # cfg.aug_training_scales = [1.]
+    cfg.aug_training_scales = [0.5,0.75,1.]
     cfg.aug_training_flips = True
     cfg.accumulate_grad_batches = 1
-    cfg.limit_train_batches = .025
+    # cfg.limit_train_batches = .025 # old 1hr
+    cfg.limit_train_batches = .3 # current 1hr
     cfg.persistent_workers = True
     cfg.flow = True
     cfg.batch_size = 1
-    cfg.batch_size_tr = 3
+    cfg.batch_size_tr = 5
     cfg.batch_size_val = 1
     cfg.batch_size_te = 1
-    cfg.lr_init = 1e-5 / 10.
-    cfg.weight_decay = 1e-4 / 100.
+    cfg.lr_init = 1e-5
+    cfg.weight_decay = 1e-4# / 10.
     cfg.nframes = 5
     cfg.nframes_val = 5
     cfg.task = "denoising"
     cfg.num_workers = 4
+    cfg.pretrained_load = False
+    cfg.embedcnn_nplanes_out = 8
     # cfg.model_name = "refactored"
     # cfg.model_name = "original"
     cfg.model_name = "augmented"

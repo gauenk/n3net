@@ -81,7 +81,15 @@ def load_model_deno(**kwargs):
     ws = optional(kwargs,'ws',-1)
     wt = optional(kwargs,'wt',0)
     batch_size = optional(kwargs,'bs',None)
+
+    # -- io --
+    pretrained_load = optional(kwargs,'pretrained_load',True)
+
+    # -- end init --
     if init: return
+    print("pretrained_load: ",pretrained_load)
+    print("embedcnn_nplanes_out: ",embedcnn_nplanes_out)
+
 
     # -- args --
     nl_temp_opt = dict(
@@ -114,13 +122,16 @@ def load_model_deno(**kwargs):
     model = model.to(device)
 
     # -- load weights --
-    fdir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
-    state_fn = get_model_weights(fdir,sigma,ntype)
-    assert os.path.isfile(str(state_fn))
-    print("state_fn: ",state_fn)
+    if pretrained_load:
 
-    # -- fill weights --
-    load_checkpoint(model,state_fn)
+        # -- filename --
+        fdir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
+        state_fn = get_model_weights(fdir,sigma,ntype)
+        assert os.path.isfile(str(state_fn))
+        print("Loading: ",state_fn)
+
+        # -- fill weights --
+        load_checkpoint(model,state_fn)
 
     # -- eval mode as default --
     model.eval()

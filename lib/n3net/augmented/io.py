@@ -53,13 +53,14 @@ def load_model_deno(**kwargs):
     task = _optional(kwargs,"task","denoising")
 
     # -- non-local [temp] --
-    nl_temp_avgpool = optional(kwargs,'nl_temp_avgpool',"true") == "true"
-    nl_temp_distance_bn = optional(kwargs,'nl_temp_distance_bn',"true") == "true"
-    nl_temp_external_temp = optional(kwargs,'nl_temp_external_temp',"true") == "true"
+    nl_temp_avgpool = optional(kwargs,'nl_temp_avgpool',True)
+    nl_temp_distance_bn = optional(kwargs,'nl_temp_distance_bn',True)
+    nl_temp_external_temp = optional(kwargs,'nl_temp_external_temp',True)
     nl_temp_temp_bias = optional(kwargs,'nl_temp_temp_bias',0.1)
+    nl_cts_topk = optional(kwargs,'nl_cts_topk',False)
 
     # -- dncnn --
-    dncnn_bn = optional(kwargs,"dncnn_bn","true") == "true"
+    dncnn_bn = optional(kwargs,"dncnn_bn",True)
     dncnn_depth = optional(kwargs,"dncnn_depth",6)
     dncnn_kernel = optional(kwargs,"dncnn_kernel",3)
     dncnn_features = optional(kwargs,"dncnn_features",64)
@@ -69,19 +70,24 @@ def load_model_deno(**kwargs):
     embedcnn_depth = optional(kwargs,"embedcnn_depth",3)
     embedcnn_kernel = optional(kwargs,"embedcnn_kernel",3)
     embedcnn_nplanes_out = optional(kwargs,"embedcnn_nplanes_out",8)
-    embedcnn_bn = optional(kwargs,"embedcnn_bn","true") == "true"
+    embedcnn_bn = optional(kwargs,"embedcnn_bn",True)
 
     # -- non-local options --
     k = optional(kwargs,'k',7)
-    k = 7
     pt = optional(kwargs,'pt',1)
-    ps = optional(kwargs,'ps',7)
+    ps = optional(kwargs,'ps',10)
     stride = optional(kwargs,'stride',5)
     dilation = optional(kwargs,'dilation',1)
-    ws = optional(kwargs,'ws',-1)
+    ws = optional(kwargs,'ws',15)
     wt = optional(kwargs,'wt',0)
     batch_size = optional(kwargs,'bs',None)
+
+    # -- io --
+    pretrained_load = optional(kwargs,'pretrained_load',True)
+
+    # -- end init --
     if init: return
+    print("embedcnn_nplanes_out: ",embedcnn_nplanes_out)
 
     # -- args --
     nl_temp_opt = dict(
@@ -106,21 +112,24 @@ def load_model_deno(**kwargs):
     ninchannels=1
     noutchannels=1
     residual = False
-    print(ws,wt,k,stride,dilation,ps,pt,batch_size)
+    print(ws,wt,k,stride,dilation,ps,pt,batch_size,ninchannels)
     model = N3Net(ninchannels, noutchannels, nfeatures_interm, ndncnn,
                   residual, dncnn_opt, nl_temp_opt, embedcnn_opt,
                   ws=ws, wt=wt, k=k, stride=stride, dilation=dilation,
-                  patchsize=ps, pt=pt, batch_size=batch_size)
+                  patchsize=ps, pt=pt, batch_size=batch_size,use_cts_topk=nl_cts_topk)
     model = model.to(device)
 
     # -- load weights --
-    fdir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
-    state_fn = get_model_weights(fdir,sigma,ntype)
-    assert os.path.isfile(str(state_fn))
-    print("state_fn: ",state_fn)
+    if pretrained_load:
 
-    # -- fill weights --
-    load_checkpoint(model,state_fn)
+        # -- filename --
+        fdir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
+        state_fn = get_model_weights(fdir,sigma,ntype)
+        assert os.path.isfile(str(state_fn))
+        print("state_fn: ",state_fn)
+
+        # -- fill weights --
+        load_checkpoint(model,state_fn)
 
     # -- eval mode as default --
     model.eval()

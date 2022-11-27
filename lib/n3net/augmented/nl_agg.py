@@ -21,7 +21,7 @@ class N3AggregationBase(nn.Module):
     r"""
     Domain agnostic base class for computing neural nearest neighbors
     """
-    def __init__(self, k, temp_opt={}):
+    def __init__(self, k, use_cts_topk, temp_opt={}):
         r"""
         :param k: Number of neighbor volumes to compute
         :param temp_opt: options for handling temperatures, see `NeuralNearestNeighbors`
@@ -30,6 +30,7 @@ class N3AggregationBase(nn.Module):
         self.k = k
         self.temp_opt = temp_opt
         self.nnn = NeuralNearestNeighbors(k, temp_opt=temp_opt)
+        self.use_cts_topk = use_cts_topk
 
     def forward(self, x, xe, ye, log_temp,
                 search, unfold, fold,
@@ -53,21 +54,38 @@ class N3AggregationBase(nn.Module):
         # print("dists.shape: ",dists.shape)
 
         # -- log_temp patches --
-        ps = unfold.ps
-        lt_patches = unfold(log_temp,qindex,nbatch_i)
-        lt_patches = rearrange(lt_patches,'b 1 1 c h w -> b 1 (h w) c')
-        if self.temp_opt["avgpool"]:
-            lt_patches = lt_patches.mean(dim=2)
-        else:
-            lt_patches = lt_patches[:,:,lt_patches.shape[2]//2,:].contiguous()
-        # print("lt_patches.shape: ",lt_patches.shape)
+        if self.use_cts_topk:
+            ps = unfold.ps
+            lt_patches = unfold(log_temp,qindex,nbatch_i)
+            lt_patches = rearrange(lt_patches,'b 1 1 c h w -> b 1 (h w) c')
+            if self.temp_opt["avgpool"]:
+                lt_patches = lt_patches.mean(dim=2)
+            else:
+                lt_patches = lt_patches[:,:,lt_patches.shape[2]//2,:].contiguous()
+            # print("lt_patches.shape: ",lt_patches.shape)
 
-        # -- compute aggregation weights --
-        dists = dists[None,:]
-        W = self.nnn(dists, log_temp=lt_patches)[0]
-        # print(W[:,0,:10])
-        # print(F.softmax(dists,1)[0,0,:10])
-        # print("dists.shape: ",dists.shape)
+            # -- compute aggregation weights --
+            dists = dists[None,:]
+            W = self.nnn(dists, log_temp=lt_patches)[0]
+
+            # -- viz --
+            # print(W[0,0,:10])
+            # print(W[:,0,:10])
+            # for i in range(7):
+            #     print(i,W[i,250,:10])
+            # for i in range(7):
+            #     print(i,W[i,250:270,:2])
+            # S = F.softmax(dists,1)
+            # print(S[0,0,:10])
+            # print(S[0,250,:10])
+            # print(S[0,250:270,:2])
+            # print("dists.shape: ",dists.shape)
+            # print("S.shape: ",dists.shape)
+            # print("W.shape: ",W.shape)
+        else:
+            dists = dists[None,:]
+            # print("dists.mean((0,1))[:10]: ",dists.mean((0,1))[:10])
+            W = F.softmax(dists,2)
         # print("W.shape: ",W.shape)
 
         nheads,b,_ = W.shape
@@ -91,8 +109,7 @@ class N3AggregationBase(nn.Module):
         # n1 = (iH-1)//stride+1
         # n2 = (iW-1)//stride+1
         # m1,m2 = n1,n2
-        # I = vid_index_neighbours(b,t,n1,n2,m1,m2,s,dev,True)
-        # print("I.shape: ",I.shape)
+        # I = vid_index_neighbours(b,t,n1,n2,m1,m2,s,dev,True        # print("I.shape: ",I.shape)
         I = vid_to_raster_inds(inds,iH,iW,stride,dev)
 
         # -- unfold and opt --
@@ -100,6 +117,8 @@ class N3AggregationBase(nn.Module):
         # print("W.shape: ",W.shape)
         # print("x_patches.shape: ",x_patches.shape)
         W = rearrange(W,"k thw s -> 1 thw s k")
+        # print("W.shape: ",W.shape)
+        # print(W.mean((0,1,3)[:10]))
         x_patches = rearrange(x_patches,'thw 1 1 c ph pw -> 1 thw (c ph pw)')
         # print("[b] W.shape: ",W.shape)
         # print("[b] x_patches.shape: ",x_patches.shape)
@@ -111,9 +130,13 @@ class N3AggregationBase(nn.Module):
 
         # -- fold into video --
         ps = unfold.ps
-        # shape_str = 'b k q c ph pw -> b q 1 1 (k c) ph pw'
-        shape_str = 'b q (c ph pw) k -> b q 1 1 (k c) ph pw'
-        z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
+        if self.use_cts_topk:
+            shape_str = 'b q (c ph pw) k -> b q 1 1 (k c) ph pw'
+            z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
+        else:
+            shape_str = 'b q (c ph pw) k -> b q 1 1 (k c) ph pw'
+            z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
+        # print("z_patches.shape: ",z_patches.shape)
         fold(z_patches,qindex)
 
 class N3Aggregation2D(nn.Module):
@@ -122,7 +145,7 @@ class N3Aggregation2D(nn.Module):
     in strides.
     """
     def __init__(self, k=7, patchsize=10, stride=1, dilation=1,
-                 ws=29, wt=0, pt=1, batch_size=None, temp_opt={}):
+                 ws=29, wt=0, pt=1, batch_size=None, use_cts_topk=False, temp_opt={}):
         r"""
         :param indexing: function for creating index tensor
         :param k: number of neighbor volumes
@@ -137,11 +160,12 @@ class N3Aggregation2D(nn.Module):
         self.k,self.pt = k,pt
         self.ws,self.wt = ws,wt
         self.batch_size = batch_size
+        self.use_cts_topk = use_cts_topk
         self.temp_opt = temp_opt
         if k <= 0:
             self.aggregation = None
         else:
-            self.aggregation = N3AggregationBase(k, temp_opt=temp_opt)
+            self.aggregation = N3AggregationBase(k, use_cts_topk, temp_opt=temp_opt)
 
     def forward(self, x, xe, ye, y=None, log_temp=None, flows=None):
         r"""
@@ -173,9 +197,10 @@ class N3Aggregation2D(nn.Module):
         bflow = F.pad(bflow,(1,1,1,1))
 
         # -- unpack --
+        k_shape = 7 if self.use_cts_topk else 1
         device = x.device
         t,c,h,w = x.shape
-        vshape = (t,c*self.k,h,w)
+        vshape = (t,c*k_shape,h,w)
         coords,dil = None,self.dilation
         stride = self.stride
         ps,k = self.patchsize,self.k
@@ -186,7 +211,8 @@ class N3Aggregation2D(nn.Module):
         use_adj = True
         adj = ps//2 if use_adj else 0
         # k_search = -1
-        k_search = 224
+        # k_search = 224
+        k_search = 224 if self.use_cts_topk else self.k
         use_k = not(k_search == -1)
         use_search_abs = False
         full_ws = True
@@ -264,12 +290,20 @@ class N3Aggregation2D(nn.Module):
         if th.any(th.isnan(z)).item():
             print("isnan(z)")
             exit(0)
-        z = z.contiguous().view(t,k,c,h,w)
+        # print("[a] z.shape: ",z.shape)
+        z = z.contiguous().view(t,k_shape,c,h,w)
+        # print("[b] z.shape: ",z.shape)
         z = z-y.view(t,1,c,h,w)
-        z = z.view(t,k*c,h,w)
+        # print("[c] z.shape: ",z.shape)
+        z = z.view(t,k_shape*c,h,w)
+        # print("[d] z.shape: ",z.shape)
 
         # Concat with input
+        # print("z.shape: ",z.shape)
+        # print("y.shape: ",y.shape)
+
         z = th.cat([y, z], dim=1)
         z = z[...,1:-1,1:-1].contiguous()
 
+        # print("z.shape: ",z.shape)
         return z

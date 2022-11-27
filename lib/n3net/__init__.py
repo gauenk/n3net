@@ -10,7 +10,7 @@ from . import lightning
 from . import utils
 from . import flow
 from .utils.misc import optional
-from .refactored import extract_model_io
+from .augmented import extract_model_io
 from .shared_model import ops
 
 # -- api for searching --

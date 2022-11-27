@@ -241,7 +241,8 @@ class N3Aggregation2D(nn.Module):
     Computes neural nearest neighbors for image data based on extracting patches
     in strides.
     """
-    def __init__(self, indexing, k, patchsize, stride, temp_opt={}, padding=None):
+    def __init__(self, indexing, k, patchsize, stride, use_cts_topk=False,
+                 temp_opt={}, padding=None):
         r"""
         :param indexing: function for creating index tensor
         :param k: number of neighbor volumes
@@ -256,6 +257,7 @@ class N3Aggregation2D(nn.Module):
         self.k = k
         self.temp_opt = temp_opt
         self.padding = padding
+        self.use_cts_topk = use_cts_topk
         if k <= 0:
             self.aggregation = None
         else:
