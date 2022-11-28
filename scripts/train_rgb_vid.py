@@ -72,9 +72,11 @@ def launch_training(_cfg):
     model_cfg = n3net.extract_model_io(cfg)
     print(model_cfg)
     model = N3NetLit(model_cfg,flow=cfg.flow,isize=cfg.isize,
-                     batch_size=cfg.batch_size_tr,lr_init=cfg.lr_init,
+                     batch_size=cfg.batch_size_tr,
+                     lr_init=cfg.lr_init,lr_final=cfg.lr_final,
                      weight_decay=cfg.weight_decay,nepochs=cfg.nepochs,
-                     task=cfg.task,uuid=str(cfg.uuid))
+                     task=cfg.task,uuid=str(cfg.uuid),
+                     scheduler=cfg.scheduler)
 
     # -- load dataset with testing mods isizes --
     # model.isize = None
@@ -204,7 +206,7 @@ def main():
     cache.clear()
 
     # -- create exp list --
-    ws,wt,k = [21],[0],[28]
+    ws,wt,k = [15],[0],[25]
     # ws,wt,k = [21],[0],[7] # no "T"
     # sigma = [50.]#,30.,10.]
     sigma = [25.]#,30.,10.]
@@ -236,30 +238,44 @@ def main():
     cfg.bw = True
     cfg.nsamples_tr = 0
     cfg.nsamples_val = 30
-    cfg.nepochs = 200
+    cfg.nepochs = 100
     # cfg.aug_training_scales = [1.]
     cfg.aug_training_scales = [0.5,0.75,1.]
     cfg.aug_training_flips = True
     cfg.accumulate_grad_batches = 1
     # cfg.limit_train_batches = .025 # old 1hr
-    cfg.limit_train_batches = .3 # current 1hr
+    cfg.limit_train_batches = 1. # current 1hr
     cfg.persistent_workers = True
     cfg.flow = True
     cfg.batch_size = 1
-    cfg.batch_size_tr = 5
+    cfg.batch_size_tr = 32
     cfg.batch_size_val = 1
     cfg.batch_size_te = 1
-    cfg.lr_init = 1e-5
-    cfg.weight_decay = 1e-4# / 10.
-    cfg.nframes = 5
+    # cfg.lr_init = 1e-5
+    # cfg.weight_decay = 1e-4# / 10.
+    cfg.nframes = 1
     cfg.nframes_val = 5
     cfg.task = "denoising"
     cfg.num_workers = 4
+    cfg.lr_init = 1e-3
+    cfg.lr_final = 1e-8
+    cfg.weight_decay = 1e-4# / 10.
+    cfg.scheduler = "exp_decay"
     cfg.pretrained_load = False
     cfg.embedcnn_nplanes_out = 8
     # cfg.model_name = "refactored"
     # cfg.model_name = "original"
     cfg.model_name = "augmented"
+
+    # -- fine-tune --
+    # cfg.wt = 3
+    # cfg.lr_init = 1e-5 / 10.
+    # cfg.lr_final = 1e-8
+    # cfg.weight_decay = 1e-4 / 100.
+    # cfg.pretrained_load = True
+    # cfg.pretrained_type = "lit"
+    # cfg.pretrained_path = "output/checkpoints/b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt"
+
     cache_io.append_configs(exps,cfg) # merge the two
 
     # -- launch each experiment --

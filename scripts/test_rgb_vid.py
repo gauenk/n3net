@@ -199,7 +199,7 @@ def load_trained_state(model,name,sigma,use_train):
                 # model_path = "14a5cd05-e70d-4888-99f1-d0ed55510b7a-epoch=88.ckpt"
                 # model_path = "14a5cd05-e70d-4888-99f1-d0ed55510b7a-epoch=88.ckpt"
                 # model_path = "747c90ee-a359-4fe4-b59f-7032ced70b75-epoch=21.ckpt"
-                model_path = "b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=01.ckpt"
+                model_path = "b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt"
             # model_path = "9587c811-0efc-44dc-be5b-5ccfa4eb819c-epoch=19.ckpt"
             # model_path = "97cab11c-f0f5-4563-88bb-5051d730931e-epoch=68.ckpt"
             # model_path = "97cab11c-f0f5-4563-88bb-5051d730931e-epoch=52.ckpt"
@@ -262,10 +262,11 @@ def main():
     cfg.temporal_crop_overlap = 0/5.#4/5. # 3 of 5 frames
     cfg.ps = 10
     cfg.embedcnn_nplanes_out = 8
-    cfg.pretrained_load = False
+    cfg.pretrained_load = True
+    cfg.pretrained_type = "lit"
 
     # -- get mesh --
-    k,bs,stride = [28,50],[1000*1024],[5]
+    k,bs,stride = [28],[1000*1024],[5]
     # ws,wt,k,bs,stride = [20],[0],[7],[28*1024],[5]
     # ws,wt,k,bs,stride = [29],[3],[7],[28*1024],[5]
     # sigmas = [10.,30.]
@@ -280,7 +281,9 @@ def main():
     # ws,wt = [15],[0]
     dnames = ["set8"]
     # use_train = ["true","false"]
-    use_train = ["true"]#,"false"]
+    use_train = ["false"]#,"false"]
+    pretrained_path = ["b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt",
+                       "1d5d6312-ebfc-495e-921e-eef12e3dbc03-epoch=00.ckpt"]
     # use_train = ["false"]
     # use_train = ["true","false"]
     # sigmas = [50.]
@@ -304,7 +307,8 @@ def main():
     exp_lists = {"dname":dnames,"vid_name":vid_names,"sigma":sigmas,
                  "flow":flow,"ws":ws,"wt":wt,
                  "use_train":use_train,"stride":stride,
-                 "ws":ws,"wt":wt,"k":k, "bs":bs, "model_name":model_name}
+                 "ws":ws,"wt":wt,"k":k, "bs":bs, "model_name":model_name,
+                 "pretrained_path":pretrained_path}
     exps_a = cache_io.mesh_pydicts(exp_lists) # create mesh
     # exp_lists['wt'] = [3]
     # exp_lists['bs'] = [512*512//8]
@@ -323,8 +327,10 @@ def main():
     exp_lists['model_name'] = ["original"]
     exp_lists['flow'] = ["false"]
     exp_lists['use_train'] = ["false"]#,"true"]
+    exp_lists['pretrained_path'] = ["none"]#,"true"]
     exps_b = cache_io.mesh_pydicts(exp_lists) # create mesh
     cfg.pretrained_load = True
+    cfg.pretrained_type = "git"
     cfg.embedcnn_nplanes_out = 8
     cfg.ps = 10
     cache_io.append_configs(exps_b,cfg) # merge the two
@@ -348,8 +354,8 @@ def main():
         uuid = cache.get_uuid(exp) # assing ID to each Dict in Meshgrid
         # if exp.use_train == "true":
         #     cache.clear_exp(uuid)
-        # if exp.model_name == "augmented" and exp.use_train == "true":
-        #     cache.clear_exp(uuid)
+        if exp.model_name == "augmented" and exp.use_train == "true":
+            cache.clear_exp(uuid)
         results = cache.load_exp(exp) # possibly load result
         if results is None: # check if no result
             exp.uuid = uuid
@@ -364,8 +370,9 @@ def main():
     # print(records.filter(like="timer"))
 
     # -- neat report --
-    fields = ["model_name",'use_train','sigma','vid_name','ws','wt',"k"]
-    fields_summ = ["model_name",'use_train','ws','wt',"k"]
+    fields = ["model_name",'sigma','vid_name','ws','wt',
+              "k","pretrained_path"]
+    fields_summ = ["model_name",'ws','wt',"k","pretrained_path"]
     res_fields = ['psnrs','ssims','timer_deno','mem_alloc','mem_res']
     res_fmt = ['%2.3f','%1.3f','%2.3f','%2.3f','%2.3f','%2.3f']
 
@@ -386,7 +393,11 @@ def main():
             # -- header --
             header = "-"*5 + " ("
             for i,field in enumerate(fields_summ):
-                header += "%s, " % (gfields[i])
+                if field == "pretrained_path":
+                    path_str = get_pretrained_path_str(gfields[i])
+                    header += "%s, " % (path_str)
+                else:
+                    header += "%s, " % (gfields[i])
             header = header[:-2]
             header += ") " + "-"*5
             print(header)
@@ -441,6 +452,18 @@ def main():
                         params = ("Ave",psnr_mean,ssim_mean,dtime_mean,
                                   mem_res_mean,mem_alloc_mean)
                         print("%13s: %2.3f %1.3f %2.3f %2.3f %2.3f" % params)
+
+def get_pretrained_path_str(path):
+    path = str(Path(path).stem)
+    if "epoch" in path:
+        epoch = path.split("=")[1].split(".")[0]
+        uuid = path.split("-")[0][:4]
+        pstr = "%s-%s" % (uuid,epoch)
+    elif path == "none":
+        pstr = "none"
+    else:
+        pstr = path
+    return pstr
 
 
 if __name__ == "__main__":

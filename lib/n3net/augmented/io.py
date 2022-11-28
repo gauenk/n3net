@@ -40,6 +40,7 @@ def load_model(**kwargs):
 def load_model_deno(**kwargs):
 
     # -- misc --
+    base_dir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
     init = _optional(kwargs,'__init',False) # purposefully weird key
     optional = partial(optional_full,init)
     device = optional(kwargs,'device','cuda:0')
@@ -83,7 +84,10 @@ def load_model_deno(**kwargs):
     batch_size = optional(kwargs,'bs',None)
 
     # -- io --
+    def_path = get_default_path(base_dir,sigma,ntype)
     pretrained_load = optional(kwargs,'pretrained_load',True)
+    pretrained_path = optional(kwargs,'pretrained_path',def_path)
+    pretrained_type = optional(kwargs,'pretrained_type',"git")
 
     # -- end init --
     if init: return
@@ -122,19 +126,17 @@ def load_model_deno(**kwargs):
     # -- load weights --
     if pretrained_load:
 
-        # -- filename --
-        fdir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
-        state_fn = get_model_weights(fdir,sigma,ntype)
-        assert os.path.isfile(str(state_fn))
-        print("state_fn: ",state_fn)
-
         # -- fill weights --
-        load_checkpoint(model,state_fn)
+        load_checkpoint(model,pretrained_path,pretrained_type)
 
     # -- eval mode as default --
     model.eval()
 
     return model
+
+def get_default_path(base_dir,sigma,ntype):
+    return get_model_weights(base_dir,sigma,ntype)
+
 
 # -- get all relevant model_cfg keys from entire cfg --
 def extract_model_io(cfg):

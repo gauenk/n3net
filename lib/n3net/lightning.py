@@ -30,6 +30,7 @@ import n3net.utils.gpu_mem as gpu_mem
 from n3net.utils.timer import ExpTimer
 from n3net.utils.metrics import compute_psnrs,compute_ssims
 from n3net.utils.misc import rslice,write_pickle,read_pickle
+from n3net.utils.model_utils import remove_lightning_load_state
 
 # -- generic logging --
 import logging
@@ -47,7 +48,7 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 class N3NetLit(pl.LightningModule):
 
     def __init__(self,model_cfg,flow=True,isize=None,batch_size=1,
-                 lr_init=0.0002,weight_decay=0.,nepochs=250,
+                 lr_init=0.0002,lr_final=1e-8,weight_decay=0.,nepochs=250,
                  scheduler="default",task="denoise",uuid="default"):
         super().__init__()
         self.model = n3net.get_deno_model(**model_cfg)
@@ -58,6 +59,7 @@ class N3NetLit(pl.LightningModule):
         self.flow = flow
         self.isize = isize
         self.lr_init = lr_init
+        self.lr_final = lr_final
         self.weight_decay = weight_decay
         self.nepochs = nepochs
         self.scheduler = scheduler
@@ -101,10 +103,18 @@ class N3NetLit(pl.LightningModule):
         print(self.lr_init,self.weight_decay)
         optim = th.optim.Adam(self.parameters(),lr=self.lr_init,
                               weight_decay=self.weight_decay)
-        StepLR = th.optim.lr_scheduler.StepLR
-        ExponentialLR = th.optim.lr_scheduler.ExponentialLR
-        scheduler = ExponentialLR(optim,gamma=0.995) # (.995)^50 ~= .78
-        return [optim], [scheduler]
+        sched = self.configure_scheduler(optim)
+        return [optim], [sched]
+
+    def configure_scheduler(self,optim):
+        # StepLR = th.optim.lr_scheduler.StepLR
+        if self.scheduler in ["default","exp_decay"]:
+            gamma = 1-math.exp(math.log(self.lr_final/self.lr_init)/self.nepochs)
+            ExponentialLR = th.optim.lr_scheduler.ExponentialLR
+            scheduler = ExponentialLR(optim,gamma=gamma) # (.995)^50 ~= .78
+        else:
+            raise ValueError(f"Uknown scheduler [{self.scheduler}]")
+        return scheduler
 
     def training_step(self, batch, batch_idx):
 
@@ -265,12 +275,3 @@ class MetricsCallback(Callback):
                           batch, batch_idx, dl_idx):
         self._accumulate_results(outs)
 
-
-
-def remove_lightning_load_state(state):
-    names = list(state.keys())
-    for name in names:
-        name_new = name.split(".")[1:]
-        name_new = ".".join(name_new)
-        state[name_new] = state[name]
-        del state[name]
