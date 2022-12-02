@@ -199,7 +199,8 @@ def load_trained_state(model,name,sigma,use_train):
                 # model_path = "14a5cd05-e70d-4888-99f1-d0ed55510b7a-epoch=88.ckpt"
                 # model_path = "14a5cd05-e70d-4888-99f1-d0ed55510b7a-epoch=88.ckpt"
                 # model_path = "747c90ee-a359-4fe4-b59f-7032ced70b75-epoch=21.ckpt"
-                model_path = "b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt"
+                # model_path = "b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt"
+                model_path = "2b0a1e00-59fb-4f28-bb40-94b419f3d172-epoch=24.ckpt"
             # model_path = "9587c811-0efc-44dc-be5b-5ccfa4eb819c-epoch=19.ckpt"
             # model_path = "97cab11c-f0f5-4563-88bb-5051d730931e-epoch=68.ckpt"
             # model_path = "97cab11c-f0f5-4563-88bb-5051d730931e-epoch=52.ckpt"
@@ -266,24 +267,36 @@ def main():
     cfg.pretrained_type = "lit"
 
     # -- get mesh --
-    k,bs,stride = [28],[1000*1024],[5]
+    k,bs,stride = [100],[1000*1024],[5]
     # ws,wt,k,bs,stride = [20],[0],[7],[28*1024],[5]
     # ws,wt,k,bs,stride = [29],[3],[7],[28*1024],[5]
     # sigmas = [10.,30.]
     # sigmas = [30.,50.]
-    sigmas = [25.,30.]
+    sigmas = [25.]#,30.]
     # sigmas = [30.]
     # sigmas = [50.]
     # ws,wt = [29],[3]
     # sigmas = [50.]
     # ws,wt = [29],[3]
-    ws,wt = [21],[0,3]
+    ws,wt = [15],[0,3]
     # ws,wt = [15],[0]
     dnames = ["set8"]
     # use_train = ["true","false"]
     use_train = ["false"]#,"false"]
-    pretrained_path = ["b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt",
-                       "1d5d6312-ebfc-495e-921e-eef12e3dbc03-epoch=00.ckpt"]
+
+    pretrained_path = [#"4633108c-4f34-4cfa-8b91-96b0e9687d10-epoch=00.ckpt",
+        #"fe87a4fa-2db6-4954-b401-0a58b6f617a6-epoch=01.ckpt",
+        # "03d0180a-5770-4c52-ab25-20ce3d8ffde1-epoch=07.ckpt"
+        "03d0180a-5770-4c52-ab25-20ce3d8ffde1-epoch=18.ckpt"
+        # "fc685b73-c3e9-482f-a23c-50be62c71c98-epoch=15.ckpt"
+        # "e44032bd-02cf-45e1-be33-8b646fd30dde-epoch=00.ckpt",
+        # "d72938ac-326f-4bed-b70f-671da5204926-epoch=01.ckpt",
+        # "b4ad0f17-2acd-42d9-8723-b3a05ce4e78b-epoch=01.ckpt"
+    ]
+    # pretrained_path = ["4633108c-4f34-4cfa-8b91-96b0e9687d10-epoch=08.ckpt"]
+    # pretrained_path = ["b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt",
+    #                    "1d5d6312-ebfc-495e-921e-eef12e3dbc03-epoch=00.ckpt",
+    #                    "2b0a1e00-59fb-4f28-bb40-94b419f3d172-epoch=24.ckpt"]
     # use_train = ["false"]
     # use_train = ["true","false"]
     # sigmas = [50.]
@@ -354,8 +367,11 @@ def main():
         uuid = cache.get_uuid(exp) # assing ID to each Dict in Meshgrid
         # if exp.use_train == "true":
         #     cache.clear_exp(uuid)
-        if exp.model_name == "augmented" and exp.use_train == "true":
-            cache.clear_exp(uuid)
+        # if exp.model_name == "augmented" and exp.use_train == "true":
+        #     cache.clear_exp(uuid)
+        cache.clear_exp(uuid)
+        # if exp.model_name == "augmented" and exp.ws == 15:
+        #     cache.clear_exp(uuid)
         results = cache.load_exp(exp) # possibly load result
         if results is None: # check if no result
             exp.uuid = uuid

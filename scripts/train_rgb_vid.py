@@ -206,7 +206,7 @@ def main():
     cache.clear()
 
     # -- create exp list --
-    ws,wt,k = [15],[0],[25]
+    ws,wt,k = [15],[0],[100]
     # ws,wt,k = [21],[0],[7] # no "T"
     # sigma = [50.]#,30.,10.]
     sigma = [25.]#,30.,10.]
@@ -235,7 +235,11 @@ def main():
     cfg = configs.default_train_cfg()
     cfg.ndevices = 2
     cfg.dname = "davis_cropped"
-    cfg.bw = True
+    cfg.bw = False
+    cfg.n3net_in_chnls = 3
+    cfg.n3net_out_chnls = 3
+    cfg.nbwd = 1
+    cfg.rbwd = False
     cfg.nsamples_tr = 0
     cfg.nsamples_val = 30
     cfg.nepochs = 100
@@ -248,7 +252,7 @@ def main():
     cfg.persistent_workers = True
     cfg.flow = True
     cfg.batch_size = 1
-    cfg.batch_size_tr = 32
+    cfg.batch_size_tr = 32//cfg.ndevices
     cfg.batch_size_val = 1
     cfg.batch_size_te = 1
     # cfg.lr_init = 1e-5
@@ -259,10 +263,11 @@ def main():
     cfg.num_workers = 4
     cfg.lr_init = 1e-3
     cfg.lr_final = 1e-8
-    cfg.weight_decay = 1e-4# / 10.
+    cfg.weight_decay = 1e-4 / 100.
     cfg.scheduler = "exp_decay"
     cfg.pretrained_load = False
     cfg.embedcnn_nplanes_out = 8
+    # cfg.pretrained_path = ""
     # cfg.model_name = "refactored"
     # cfg.model_name = "original"
     cfg.model_name = "augmented"

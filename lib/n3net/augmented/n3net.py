@@ -156,7 +156,9 @@ class N3Block(nn.Module):
     def __init__(self, nplanes_in,
                  k=7, patchsize=10, stride=1, dilation=1,
                  ws=29, wt=0, pt=1, batch_size=None,
-                 use_cts_topk = False, temp_opt={}, embedcnn_opt={}):
+                 use_cts_topk = False,
+                 nbwd = 1, rbwd = True,
+                 temp_opt={}, embedcnn_opt={}):
         r"""
         :param nplanes_in: number of input features
         :param k: number of neighbors to sample
@@ -180,6 +182,8 @@ class N3Block(nn.Module):
         self.batch_size = batch_size
         self.ws,self.wt = ws,wt
         self.use_cts_topk = use_cts_topk
+        self.nbwd = nbwd
+        self.rbwd = rbwd
 
         # -- patch embedding --
         embedcnn_opt["nplanes_in"] = nplanes_in
@@ -202,7 +206,9 @@ class N3Block(nn.Module):
         self.n3aggregation = nl_agg.N3Aggregation2D(
             k=k, patchsize=patchsize, stride=stride, dilation=dilation,
             ws=ws, wt=wt, pt=pt, batch_size=batch_size,
-            use_cts_topk=use_cts_topk, temp_opt=temp_opt)
+            use_cts_topk=use_cts_topk,
+            nbwd = nbwd, rbwd = rbwd,
+            temp_opt=temp_opt)
 
         self.reset_parameters()
 
@@ -233,7 +239,8 @@ class N3Net(nn.Module):
     def __init__(self, nplanes_in, nplanes_out, nplanes_interm, nblocks,
                  residual, block_opt, nl_temp_opt, embedcnn_opt,
                  ws=29, wt=0, k=7, stride=5, dilation=1,
-                 patchsize=10, pt=1, batch_size=None, use_cts_topk=False):
+                 patchsize=10, pt=1, batch_size=None, use_cts_topk=False,
+                 nbwd=1, rbwd=True):
 
         r"""
         :param nplanes_in: number of input features
@@ -260,7 +267,8 @@ class N3Net(nn.Module):
                          ws=ws,wt=wt,pt=pt,batch_size=batch_size,
                          temp_opt=nl_temp_opt,
                          use_cts_topk=use_cts_topk,
-                         embedcnn_opt=embedcnn_opt)
+                         embedcnn_opt=embedcnn_opt,
+                         nbwd=nbwd,rbwd=rbwd)
             nin = nl.nplanes_out
             nls.append(nl)
 

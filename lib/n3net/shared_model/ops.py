@@ -116,6 +116,7 @@ class IndexedMatmul2Efficient(torch.autograd.Function):
         grad_y = torch.cat(grad_y_chunks, 1)
         return grad_x, grad_y, None, None
 
+
 def indexed_matmul_1_efficient(x,y,I):
     return IndexedMatmul1Efficient.apply(x,y,I)
 

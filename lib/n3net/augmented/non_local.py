@@ -400,12 +400,21 @@ def vid_to_raster_inds(inds,iH,iW,stride,dev):
     nH = (iH-1)//stride+1
     nW = (iW-1)//stride+1
     nHW = nH * nW
+    # print("nH,nW: ",nH,nW)
 
     # -- rasterized --
     tI = inds[...,0]
     hI = th.div(inds[...,1],stride,rounding_mode="floor")
     wI = th.div(inds[...,2],stride,rounding_mode="floor")
     rI = tI * nH * nW + hI * nW + wI
+    # print("inds.shape: ",inds.shape)
+    # print(tI.shape,stride)
+    # print(tI[0,:10],inds[0,:10,0])
+    # print(hI[0,:10],inds[0,:10,1])
+    # print(wI[0,:10],inds[0,:10,2])
+    # print(rI[0,:10])
+    # exit(0)
+
 
     # -- reshape --
     rI = rI[None,:].contiguous()
