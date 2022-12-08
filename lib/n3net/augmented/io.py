@@ -82,6 +82,12 @@ def load_model_deno(**kwargs):
     ws = optional(kwargs,'ws',15)
     wt = optional(kwargs,'wt',0)
     batch_size = optional(kwargs,'bs',None)
+    nbwd = optional(kwargs,'nbwd',1)
+    rbwd = optional(kwargs,'rbwd',True)
+
+    # -- channel in/out --
+    ninchannels = optional(kwargs,"n3net_in_chnls",1)
+    noutchannels = optional(kwargs,"n3net_out_chnls",1)
 
     # -- io --
     def_path = get_default_path(base_dir,sigma,ntype)
@@ -113,14 +119,13 @@ def load_model_deno(**kwargs):
         residual = True)
 
     # -- declare model --
-    ninchannels=1
-    noutchannels=1
     residual = False
     print(ws,wt,k,stride,dilation,ps,pt,batch_size,ninchannels)
     model = N3Net(ninchannels, noutchannels, nfeatures_interm, ndncnn,
                   residual, dncnn_opt, nl_temp_opt, embedcnn_opt,
                   ws=ws, wt=wt, k=k, stride=stride, dilation=dilation,
-                  patchsize=ps, pt=pt, batch_size=batch_size,use_cts_topk=nl_cts_topk)
+                  patchsize=ps, pt=pt, batch_size=batch_size,
+                  nbwd=nbwd,rbwd=rbwd,use_cts_topk=nl_cts_topk)
     model = model.to(device)
 
     # -- load weights --

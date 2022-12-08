@@ -33,7 +33,7 @@ class N3AggregationBase(nn.Module):
         self.use_cts_topk = use_cts_topk
 
     def forward(self, x, xe, ye, log_temp,
-                search, unfold, fold,
+                search, unfold, fold, wpsum,
                 qindex, nbatch_i):
         r"""
         :param x: database items, shape BxNxF
@@ -52,6 +52,8 @@ class N3AggregationBase(nn.Module):
         dists,inds = dists[0],inds[0]
         dists = -dists
         # print("dists.shape: ",dists.shape)
+        # print(xe.max(),xe.min())
+        # print(ye.max(),ye.min())
 
         # -- log_temp patches --
         if self.use_cts_topk:
@@ -83,9 +85,12 @@ class N3AggregationBase(nn.Module):
             # print("S.shape: ",dists.shape)
             # print("W.shape: ",W.shape)
         else:
+            # print(dists[:5,:10])
+            scale = 10.
             dists = dists[None,:]
             # print("dists.mean((0,1))[:10]: ",dists.mean((0,1))[:10])
-            W = F.softmax(dists,2)
+            W = F.softmax(scale*dists,2)
+            # print(W[0])
         # print("W.shape: ",W.shape)
 
         nheads,b,_ = W.shape
@@ -95,47 +100,37 @@ class N3AggregationBase(nn.Module):
         # print("x.shape,W.shape,inds.shape: ",x.shape,W.shape,inds.shape)
         # z_patches = wpsum(x[None,:],W[None,:],inds[None,:]) # b self.k c h w
         # print("z_patches.shape: ",z_patches.shape)
+        ps = search.ps
 
-        # -- get indices --
-        # print("x.shape: ",x.shape)
-        dev = x.device
-        t,c,iH,iW = x.shape
-        # b = x.shape[0]
-        # t = x.shape[1]
-        # print("x.shape: ",x.shape)
-        stride = search.stride0#5
-        # b = 1
-        # s = 15
-        # n1 = (iH-1)//stride+1
-        # n2 = (iW-1)//stride+1
-        # m1,m2 = n1,n2
-        # I = vid_index_neighbours(b,t,n1,n2,m1,m2,s,dev,True        # print("I.shape: ",I.shape)
-        I = vid_to_raster_inds(inds,iH,iW,stride,dev)
+        use_unfold = True
+        if use_unfold:
 
-        # -- unfold and opt --
-        x_patches = unfold(x)
-        # print("W.shape: ",W.shape)
-        # print("x_patches.shape: ",x_patches.shape)
-        W = rearrange(W,"k thw s -> 1 thw s k")
-        # print("W.shape: ",W.shape)
-        # print(W.mean((0,1,3)[:10]))
-        x_patches = rearrange(x_patches,'thw 1 1 c ph pw -> 1 thw (c ph pw)')
-        # print("[b] W.shape: ",W.shape)
-        # print("[b] x_patches.shape: ",x_patches.shape)
-        # exit(0)
-        z_patches = n3net.ops.indexed_matmul_2_efficient(x_patches, W,
-                                                         I, chunk_size=256)
-        # print("z_patches.shape: ",z_patches.shape)
-        # exit(0)
+            # -- get indices --
+            dev = x.device
+            t,c,iH,iW = x.shape
+            stride = search.stride0#5
+            I = vid_to_raster_inds(inds,iH,iW,stride,dev)
 
-        # -- fold into video --
-        ps = unfold.ps
-        if self.use_cts_topk:
+            # -- unfold and opt --
+            x_patches = unfold(x)
+            # print("W.shape: ",W.shape)
+            # print("x_patches.shape: ",x_patches.shape)
+            # W = rearrange(W,"k thw s -> 1 thw s k")
+            W = rearrange(W,"k thw s -> 1 thw s k")
+            s = W.shape[2] # conceptually, the "k"
+            x_patches = rearrange(x_patches,'thw 1 1 c ph pw -> 1 thw (c ph pw)')
+            z_patches = n3net.ops.indexed_matmul_2_efficient(x_patches, W,
+                                                             I, chunk_size=s)
             shape_str = 'b q (c ph pw) k -> b q 1 1 (k c) ph pw'
             z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
         else:
-            shape_str = 'b q (c ph pw) k -> b q 1 1 (k c) ph pw'
+            z_patches = wpsum(x[None,:],W[None,:],inds[None,:]) # b self.k c h w
+            shape_str = 'b k q c ph pw -> b q 1 1 (k c) ph pw'
             z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
+            fold(z_patches,qindex)
+
+
+        # -- fold into video --
         # print("z_patches.shape: ",z_patches.shape)
         fold(z_patches,qindex)
 
@@ -145,7 +140,8 @@ class N3Aggregation2D(nn.Module):
     in strides.
     """
     def __init__(self, k=7, patchsize=10, stride=1, dilation=1,
-                 ws=29, wt=0, pt=1, batch_size=None, use_cts_topk=False, temp_opt={}):
+                 ws=29, wt=0, pt=1, batch_size=None, use_cts_topk=False,
+                 nbwd=1, rbwd=True, temp_opt={}):
         r"""
         :param indexing: function for creating index tensor
         :param k: number of neighbor volumes
@@ -161,6 +157,8 @@ class N3Aggregation2D(nn.Module):
         self.ws,self.wt = ws,wt
         self.batch_size = batch_size
         self.use_cts_topk = use_cts_topk
+        self.nbwd = nbwd
+        self.rbwd = rbwd
         self.temp_opt = temp_opt
         if k <= 0:
             self.aggregation = None
@@ -218,6 +216,7 @@ class N3Aggregation2D(nn.Module):
         full_ws = True
         only_full = False
         border_str = "reflect" if rbounds else "zero"
+        remove_self = self.use_cts_topk
 
         # -- init fold --
         unfold = dnls.iUnfold(ps,coords,stride=stride,dilation=dil,
@@ -243,16 +242,17 @@ class N3Aggregation2D(nn.Module):
                                   full_ws=full_ws,exact=exact,
                                   h0_off=h0_off,w0_off=w0_off,
                                   h1_off=h1_off,w1_off=w1_off,
-                                  remove_self=True,rbwd=True,nbwd=3)
+                                  remove_self=remove_self,
+                                  rbwd=self.rbwd,nbwd=self.nbwd)
 
         # -- weighted patch sum --
         h_off,w_off = 0,0
         # adj = 0
         # h_off,w_off = -3,-3
-        # wpsum = dnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
-        #                                             dilation=dil, adj=adj,
-        #                                             exact=exact,rbwd=True,
-        #                                             reflect_bounds=reflect_bounds)
+        wpsum = dnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
+                                                    dilation=dil, adj=adj,
+                                                    exact=exact,rbwd=True,
+                                                    reflect_bounds=reflect_bounds)
 
         # -- batching --
         # rm_pix = 0#dil*(ps-1)# if only_full else dil*(ps//2-1)
@@ -281,7 +281,7 @@ class N3Aggregation2D(nn.Module):
 
             # -- exec --
             self.aggregation(x,xe,ye,log_temp,
-                             search,unfold,fold,
+                             search,unfold,fold,wpsum,
                              qindex,nbatch_i)
 
         # -- final steps --
