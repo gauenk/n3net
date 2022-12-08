@@ -236,7 +236,8 @@ def main():
     # -- get cache --
     cache_dir = ".cache_io"
     # cache_name = "test_rgb_net" # current!
-    cache_name = "test_rgb_net_rebuttle_testing" # current!
+    cache_name = "test_rgb_net_1208" # current!
+    # cache_name = "test_rgb_net_rebuttle_testing" # current!
     # cache_name = "test_rgb_net_rebuttle_s50" # current!
     # cache_name = "test_rgb_net_rebuttle_s50_te" # current!
     # cache_name = "test_rgb_net_rebuttle_s25" # current!
@@ -263,7 +264,9 @@ def main():
     cfg.ps = 10
     cfg.embedcnn_nplanes_out = 8
     cfg.pretrained_load = True
-    cfg.pretrained_type = "lit"
+    # cfg.pretrained_type = "lit"
+    cfg.pretrained_type = "git"
+    cfg.nl_cts_topk = True
 
     # -- get mesh --
     k,bs,stride = [28],[1000*1024],[5]
@@ -282,8 +285,9 @@ def main():
     dnames = ["set8"]
     # use_train = ["true","false"]
     use_train = ["false"]#,"false"]
-    pretrained_path = ["b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt",
-                       "1d5d6312-ebfc-495e-921e-eef12e3dbc03-epoch=00.ckpt"]
+    pretrained_path = ["weights/results_gaussian_denoising/pretrained_sigma50/checkpoint/051_ckpt.t7"]
+    # pretrained_path = ["b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt",
+    #                    "1d5d6312-ebfc-495e-921e-eef12e3dbc03-epoch=00.ckpt"]
     # use_train = ["false"]
     # use_train = ["true","false"]
     # sigmas = [50.]
@@ -354,8 +358,8 @@ def main():
         uuid = cache.get_uuid(exp) # assing ID to each Dict in Meshgrid
         # if exp.use_train == "true":
         #     cache.clear_exp(uuid)
-        if exp.model_name == "augmented" and exp.use_train == "true":
-            cache.clear_exp(uuid)
+        # if exp.model_name == "augmented" and exp.use_train == "true":
+        #     cache.clear_exp(uuid)
         results = cache.load_exp(exp) # possibly load result
         if results is None: # check if no result
             exp.uuid = uuid

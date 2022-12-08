@@ -199,6 +199,7 @@ class N3Block(nn.Module):
         # self.nplanes_out = (k+1) * nplanes_in
         k_shape = 7 if self.use_cts_topk else 1
         self.nplanes_out = (k_shape+1) * nplanes_in # fixed "k == 7"
+        print("self.nplanes_out: ",self.nplanes_out)
         self.n3aggregation = nl_agg.N3Aggregation2D(
             k=k, patchsize=patchsize, stride=stride, dilation=dilation,
             ws=ws, wt=wt, pt=pt, batch_size=batch_size,
@@ -262,6 +263,7 @@ class N3Net(nn.Module):
                          use_cts_topk=use_cts_topk,
                          embedcnn_opt=embedcnn_opt)
             nin = nl.nplanes_out
+            print("nin: ",nin)
             nls.append(nl)
 
         nout = nplanes_out
