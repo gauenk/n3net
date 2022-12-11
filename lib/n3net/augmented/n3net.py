@@ -156,7 +156,7 @@ class N3Block(nn.Module):
     def __init__(self, nplanes_in,
                  k=7, patchsize=10, stride=1, dilation=1,
                  ws=29, wt=0, pt=1, batch_size=None,
-                 use_cts_topk = False,
+                 use_cts_topk = False, dist_scale=1.,
                  nbwd = 1, rbwd = True,
                  temp_opt={}, embedcnn_opt={}):
         r"""
@@ -182,6 +182,7 @@ class N3Block(nn.Module):
         self.batch_size = batch_size
         self.ws,self.wt = ws,wt
         self.use_cts_topk = use_cts_topk
+        self.dist_scale = dist_scale
         self.nbwd = nbwd
         self.rbwd = rbwd
 
@@ -203,10 +204,12 @@ class N3Block(nn.Module):
         # self.nplanes_out = (k+1) * nplanes_in
         k_shape = 7 if self.use_cts_topk else 1
         self.nplanes_out = (k_shape+1) * nplanes_in # fixed "k == 7"
+        print("N3block: [in,out]",nplanes_in,self.nplanes_out,self.use_cts_topk)
         self.n3aggregation = nl_agg.N3Aggregation2D(
             k=k, patchsize=patchsize, stride=stride, dilation=dilation,
             ws=ws, wt=wt, pt=pt, batch_size=batch_size,
             use_cts_topk=use_cts_topk,
+            dist_scale=dist_scale,
             nbwd = nbwd, rbwd = rbwd,
             temp_opt=temp_opt)
 
@@ -240,7 +243,7 @@ class N3Net(nn.Module):
                  residual, block_opt, nl_temp_opt, embedcnn_opt,
                  ws=29, wt=0, k=7, stride=5, dilation=1,
                  patchsize=10, pt=1, batch_size=None, use_cts_topk=False,
-                 nbwd=1, rbwd=True):
+                 dist_scale=1., nbwd=1, rbwd=True):
 
         r"""
         :param nplanes_in: number of input features
@@ -256,17 +259,19 @@ class N3Net(nn.Module):
         self.nplanes_out = nplanes_out
         self.nblocks = nblocks
         self.residual = residual
-        # print(nplanes_in,nplanes_out,nplanes_interm)
+        print("nplanes_in,nplanes_out,nplanes_interm: ",nplanes_in,nplanes_out,nplanes_interm)
 
         nin = nplanes_in
         cnns,nls = [],[]
         for i in range(nblocks-1):
+            print("nin,nplanes_interm: ",nin,nplanes_interm)
             cnns.append(DnCNN(nin, nplanes_interm, **block_opt))
             nl = N3Block(nplanes_interm,k=k,patchsize=patchsize,
                          stride=stride,dilation=dilation,
                          ws=ws,wt=wt,pt=pt,batch_size=batch_size,
                          temp_opt=nl_temp_opt,
                          use_cts_topk=use_cts_topk,
+                         dist_scale=dist_scale,
                          embedcnn_opt=embedcnn_opt,
                          nbwd=nbwd,rbwd=rbwd)
             nin = nl.nplanes_out
@@ -284,7 +289,6 @@ class N3Net(nn.Module):
         for i in range(self.nblocks-1):
             x = self.blocks[i](x)
             x = self.nls[i](x, flows)
-
         x = self.blocks[-1](x)
         if self.residual:
             nshortcut = min(self.nplanes_in, self.nplanes_out)

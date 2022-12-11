@@ -278,6 +278,15 @@ class N3AggregationBase(nn.Module):
 
         assert((b,m,o,k) == W.shape)
         # aggregate output
+        # print("D.shape: ",D.shape)
+        # print("W.shape: ",W.shape)
+        # print("D[0]: ",D[0])
+        # print("D[:,0,0]: ",D[:,0,0])
+        # S = th.exp(F.log_softmax(30*D, dim=2))
+        # print("S[0]: ",S[0])
+        # S = th.exp(F.log_softmax(30*D, dim=0))
+        # print("S[0]: ",S[:,0,0])
+        # print("W[0]: ",W[0])
         z = aggregate_output(W, x, I, train=self.training)
         assert((b,m,f,k) == z.shape)
         # print("z.shape: ",z.shape)
@@ -448,7 +457,7 @@ def index_neighbours(xe_patch, ye_patch, s, exclude_self=True):
 
 def index_with_shape(b,m1,m2,n1,n2,dev,s,exclude_self=True):
     """
-    
+
     s: neighborhood size
 
     """

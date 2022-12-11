@@ -54,12 +54,25 @@ class IndexedMatmul2Efficient(torch.autograd.Function):
         ctx.save_for_backward(x, y, I)
         ctx.chunk_size = chunk_size
         b,_,o,k = y.shape # b m o k
+
+        # -- viz --
         # print("x.shape: ",x.shape)
         # print("y.shape: ",y.shape,chunk_size)
         # print("I.shape: ",I.shape)
+
         n,e = x.shape[1:3] # b n f
         m = I.shape[1] # b m o
         x_interm = x.view(b,1,n,e).detach()
+
+        # -- viz --
+        # print("x_interm.shape: ",x_interm.shape)
+        # print(y[0,:3,:3,0])
+        # print(y[0,:3,:3,1])
+        # print("-"*20)
+        # print(y[0,0,:3,0])
+        # print(y[0,1,:3,0])
+        # print(y[0,2,:3,0])
+
         z_chunks = [] # b m f k
         for m_offset in range(0,m,chunk_size):
             this_chunk_size = min(chunk_size, m-m_offset)
@@ -70,7 +83,9 @@ class IndexedMatmul2Efficient(torch.autograd.Function):
             y_full = torch.cuda.FloatTensor(b,k,this_chunk_size,n).fill_(0)
             # y_full =y_full.scatter_add(source=y_chunk.permute(0,3,1,2), index=If,dim=3)
             y_full = y_full.scatter_add(3,If,y_chunk.permute(0,3,1,2))
-            # print("y_full.shape: ",y_full.shape)
+            # if m_offset == 0:
+            #     print("y_chunk.permute(...).shape: ",y_chunk.permute(0,3,1,2).shape)
+            #     print("y_full.shape: ",y_full.shape)
             z_interm = torch.cat([torch.matmul(y_full[:,i_k:i_k+1,:,:], x_interm)
                                   for i_k in range(k)], 1)
             z_chunk = z_interm.permute(0,2,3,1)

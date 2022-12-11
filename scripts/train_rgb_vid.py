@@ -128,7 +128,7 @@ def launch_training(_cfg):
                          accumulate_grad_batches=cfg.accumulate_grad_batches,
                          limit_train_batches=cfg.limit_train_batches,
                          limit_val_batches=5,
-                         max_epochs=cfg.nepochs-1,log_every_n_steps=1,
+                         max_epochs=cfg.nepochs+1,log_every_n_steps=1,
                          logger=logger,gradient_clip_val=0.5,
                          callbacks=[checkpoint_callback,cc_recent])
     timer.start("train")
@@ -206,7 +206,7 @@ def main():
     cache.clear()
 
     # -- create exp list --
-    ws,wt,k = [15],[0],[100]
+    ws,wt,k = [15],[3],[100]
     # ws,wt,k = [21],[0],[7] # no "T"
     # sigma = [50.]#,30.,10.]
     sigma = [25.]#,30.,10.]
@@ -236,50 +236,57 @@ def main():
     cfg.ndevices = 2
     cfg.dname = "davis_cropped"
     cfg.bw = False
-    cfg.n3net_in_chnls = 3
-    cfg.n3net_out_chnls = 3
+    cfg.arch_in_chnls = 3
+    cfg.arch_out_chnls = 3
     cfg.nbwd = 1
-    cfg.rbwd = False
+    cfg.rbwd = True
     cfg.nsamples_tr = 0
     cfg.nsamples_val = 30
-    cfg.nepochs = 100
+    cfg.nepochs = 20
+    # cfg.nepochs = 5
     # cfg.aug_training_scales = [1.]
     cfg.aug_training_scales = [0.5,0.75,1.]
     cfg.aug_training_flips = True
     cfg.accumulate_grad_batches = 1
     # cfg.limit_train_batches = .025 # old 1hr
-    cfg.limit_train_batches = 1. # current 1hr
+    # cfg.limit_train_batches = 1. # current 1hr
+    cfg.limit_train_batches = .5 # wt = 3
     cfg.persistent_workers = True
     cfg.flow = True
     cfg.batch_size = 1
     cfg.batch_size_tr = 32//cfg.ndevices
+    # cfg.batch_size_tr = 6//cfg.ndevices
     cfg.batch_size_val = 1
     cfg.batch_size_te = 1
-    # cfg.lr_init = 1e-5
-    # cfg.weight_decay = 1e-4# / 10.
     cfg.nframes = 1
+    # cfg.nframes = 5
     cfg.nframes_val = 5
     cfg.task = "denoising"
     cfg.num_workers = 4
-    cfg.lr_init = 1e-3
+    # cfg.lr_init = 1e-3
+    # cfg.lr_final = 1e-8
+    # cfg.weight_decay = 1e-6
+    cfg.lr_init = 1e-6
     cfg.lr_final = 1e-8
-    cfg.weight_decay = 1e-4 / 100.
+    cfg.weight_decay = 1e-8
     cfg.scheduler = "exp_decay"
+    cfg.embedcnn_nplanes_out = 15
     cfg.pretrained_load = False
-    cfg.embedcnn_nplanes_out = 8
-    # cfg.pretrained_path = ""
-    # cfg.model_name = "refactored"
-    # cfg.model_name = "original"
+    # cfg.pretrained_path = "output/checkpoints/4e3b9eea-28a5-4df0-94be-db581fd0d175-epoch=19.ckpt"
+    cfg.pretrained_type = "lit"
     cfg.model_name = "augmented"
 
     # -- fine-tune --
-    # cfg.wt = 3
-    # cfg.lr_init = 1e-5 / 10.
-    # cfg.lr_final = 1e-8
-    # cfg.weight_decay = 1e-4 / 100.
-    # cfg.pretrained_load = True
-    # cfg.pretrained_type = "lit"
+    cfg.wt = 3
+    cfg.lr_init = 1e-5
+    cfg.lr_final = 1e-8
+    cfg.weight_decay = 1e-8
+    cfg.pretrained_load = True
+    cfg.pretrained_type = "lit"
     # cfg.pretrained_path = "output/checkpoints/b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt"
+    # cfg.pretrained_path = "output/checkpoints/e8c23b0c-9d4b-48a3-bba3-6acf2df4487e-epoch=01.ckpt"
+    cfg.pretrained_path = "output/checkpoints/8872ea42-b1f9-4782-809b-e4ea2b6b8d03-epoch=04.ckpt"
+    cfg.nl_dist_scale = 1.
 
     cache_io.append_configs(exps,cfg) # merge the two
 

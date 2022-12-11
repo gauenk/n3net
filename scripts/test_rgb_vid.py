@@ -29,7 +29,7 @@ from n3net import lightning
 from n3net.utils.misc import optional
 import n3net.utils.gpu_mem as gpu_mem
 from n3net.utils.misc import rslice,write_pickle,read_pickle
-from n3net.utils.proc_utils import spatial_chop,temporal_chop
+from n3net.utils.proc_utils import get_fwd_fxn
 
 def run_exp(cfg):
 
@@ -67,14 +67,7 @@ def run_exp(cfg):
     frame_end = optional(cfg,"frame_end",-1)
     indices = data_hub.filter_subseq(data[cfg.dset],cfg.vid_name,frame_start,frame_end)
 
-    # # -- optional filter --
-    # groups = data.te.groups
-    # indices = [i for i,g in enumerate(groups) if cfg.vid_name in g]
-    # if frame_start >= 0 and frame_end > 0:
-    #     def fbnds(fnums,lb,ub): return (lb <= np.min(fnums)) and (ub >= np.max(fnums))
-    #     indices = [i for i in indices if fbnds(data.te.paths['fnums'][groups[i]],
-    #                                            cfg.frame_start,cfg.frame_end)]
-
+    print(indices)
     for index in indices:
 
         # -- clean memory --
@@ -113,7 +106,6 @@ def run_exp(cfg):
 
         # -- denoise --
         fwd_fxn = get_fwd_fxn(cfg,model)
-        # tsize = 10
         timer.start("deno")
         gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
         with th.no_grad():
@@ -135,6 +127,7 @@ def run_exp(cfg):
         ssims = n3net.utils.metrics.compute_ssims(deno,clean,div=imax)
         print(noisy_psnrs)
         print(psnrs,psnrs.mean())
+        print(deno_fns)
 
         # -- append results --
         results.psnrs.append(psnrs)
@@ -149,24 +142,6 @@ def run_exp(cfg):
             results[name].append(time)
 
     return results
-
-def get_fwd_fxn(cfg,model):
-    s_verbose = True
-    t_verbose = True
-    s_size = cfg.spatial_crop_size
-    s_overlap = cfg.spatial_crop_overlap
-    t_size = cfg.temporal_crop_size
-    t_overlap = cfg.temporal_crop_overlap
-    model_fwd = lambda vid,flows: model(vid,flows=flows)
-    if not(s_size is None) and not(s_size == "none"):
-        schop_p = lambda vid,flows: spatial_chop(s_size,s_overlap,model_fwd,vid,
-                                                 flows=flows,verbose=s_verbose)
-    else:
-        schop_p = model_fwd
-    tchop_p = lambda vid,flows: temporal_chop(t_size,t_overlap,schop_p,vid,
-                                              flows=flows,verbose=t_verbose)
-    fwd_fxn = tchop_p # rename
-    return fwd_fxn
 
 def load_trained_state(model,name,sigma,use_train):
 
@@ -248,8 +223,13 @@ def main():
     # -- get defaults --
     cfg = configs.default_test_vid_cfg()
     cfg.seed = 123
-    cfg.bw = True
     cfg.nframes = 6
+    cfg.bw = True
+    # cfg.bw = False
+    # cfg.arch_in_chnls = 3
+    # cfg.arch_out_chnls = 3
+    cfg.arch_in_chnls = 1
+    cfg.arch_out_chnls = 1
     cfg.isize = "none"
     # cfg.isize = "512_512"
     cfg.isize = "256_256"
@@ -262,9 +242,13 @@ def main():
     cfg.temporal_crop_size = cfg.nframes
     cfg.temporal_crop_overlap = 0/5.#4/5. # 3 of 5 frames
     cfg.ps = 10
+    cfg.nl_cts_topk = True
+    # cfg.embedcnn_nplanes_out = 15
     cfg.embedcnn_nplanes_out = 8
     cfg.pretrained_load = True
-    cfg.pretrained_type = "lit"
+    # cfg.pretrained_type = "lit"
+    cfg.pretrained_type = "git"
+    cfg.softax_scale = 1
 
     # -- get mesh --
     k,bs,stride = [100],[1000*1024],[5]
@@ -272,7 +256,8 @@ def main():
     # ws,wt,k,bs,stride = [29],[3],[7],[28*1024],[5]
     # sigmas = [10.,30.]
     # sigmas = [30.,50.]
-    sigmas = [25.]#,30.]
+    sigmas = [30.]
+    # sigmas = [25.,30.]#,30.]
     # sigmas = [30.]
     # sigmas = [50.]
     # ws,wt = [29],[3]
@@ -284,15 +269,19 @@ def main():
     # use_train = ["true","false"]
     use_train = ["false"]#,"false"]
 
-    pretrained_path = [#"4633108c-4f34-4cfa-8b91-96b0e9687d10-epoch=00.ckpt",
-        #"fe87a4fa-2db6-4954-b401-0a58b6f617a6-epoch=01.ckpt",
-        # "03d0180a-5770-4c52-ab25-20ce3d8ffde1-epoch=07.ckpt"
-        "03d0180a-5770-4c52-ab25-20ce3d8ffde1-epoch=18.ckpt"
-        # "fc685b73-c3e9-482f-a23c-50be62c71c98-epoch=15.ckpt"
-        # "e44032bd-02cf-45e1-be33-8b646fd30dde-epoch=00.ckpt",
-        # "d72938ac-326f-4bed-b70f-671da5204926-epoch=01.ckpt",
-        # "b4ad0f17-2acd-42d9-8723-b3a05ce4e78b-epoch=01.ckpt"
+    pretrained_path = [
+        # "e8c23b0c-9d4b-48a3-bba3-6acf2df4487e-epoch=01.ckpt",
+        # "8872ea42-b1f9-4782-809b-e4ea2b6b8d03-epoch=00.ckpt",
+        # "8872ea42-b1f9-4782-809b-e4ea2b6b8d03-epoch=01.ckpt",
+        # "8872ea42-b1f9-4782-809b-e4ea2b6b8d03-epoch=02.ckpt",
+        # "8872ea42-b1f9-4782-809b-e4ea2b6b8d03-epoch=03.ckpt",
+        # "8872ea42-b1f9-4782-809b-e4ea2b6b8d03-epoch=04.ckpt",
+        # "ca30113c-5ac1-4ec6-ba63-a077116d5762-epoch=00.ckpt"
+        # "ca30113c-5ac1-4ec6-ba63-a077116d5762-epoch=12.ckpt"
+        "pretrained_s25.t7"
     ]
+    nl_dist_scale = [1]
+    # nl_dist_scale = [1,10,20]
     # pretrained_path = ["4633108c-4f34-4cfa-8b91-96b0e9687d10-epoch=08.ckpt"]
     # pretrained_path = ["b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt",
     #                    "1d5d6312-ebfc-495e-921e-eef12e3dbc03-epoch=00.ckpt",
@@ -304,12 +293,12 @@ def main():
     # wt,sigmas = [0],[30.]
     # vid_names = ["tractor"]
     # bs = [512*512]
-    vid_names = ["rafting"]
+    # vid_names = ["rafting"]
     # vid_names = ["sunflower"]
     # vid_names = ["rafting","sunflower"]
     # vid_names = ["rafting","sunflow"]
-    # vid_names = ["sunflower","tractor","snowboard","motorbike",
-    #              "hypersmooth","park_joy","rafting","touchdown"]
+    vid_names = ["sunflower","tractor","snowboard","motorbike",
+                 "hypersmooth","park_joy","rafting","touchdown"]
     flow = ["true"]
     # flow = ["true","false"]
     # model_name = ["augmented"]
@@ -321,7 +310,8 @@ def main():
                  "flow":flow,"ws":ws,"wt":wt,
                  "use_train":use_train,"stride":stride,
                  "ws":ws,"wt":wt,"k":k, "bs":bs, "model_name":model_name,
-                 "pretrained_path":pretrained_path}
+                 "pretrained_path":pretrained_path,
+                 "nl_dist_scale":nl_dist_scale}
     exps_a = cache_io.mesh_pydicts(exp_lists) # create mesh
     # exp_lists['wt'] = [3]
     # exp_lists['bs'] = [512*512//8]
@@ -345,11 +335,14 @@ def main():
     cfg.pretrained_load = True
     cfg.pretrained_type = "git"
     cfg.embedcnn_nplanes_out = 8
+    cfg.bw = True
+    cfg.arch_in_chnls = 1
+    cfg.arch_out_chnls = 1
     cfg.ps = 10
     cache_io.append_configs(exps_b,cfg) # merge the two
 
     # -- cat exps --
-    exps = exps_a + exps_b
+    exps = exps_a# + exps_b
     # exps = exps_b
 
     # -- run exps --
@@ -369,30 +362,36 @@ def main():
         #     cache.clear_exp(uuid)
         # if exp.model_name == "augmented" and exp.use_train == "true":
         #     cache.clear_exp(uuid)
-        cache.clear_exp(uuid)
-        # if exp.model_name == "augmented" and exp.ws == 15:
+        # cache.clear_exp(uuid)
+        # if exp.sigma == 30.:
         #     cache.clear_exp(uuid)
+        # if exp.model_name == "original":
+        #     cache.clear_exp(uuid)
+        # cache.clear_exp(uuid)
+        # if "9a3f" in exp.pretrained_path and "03" in exp.pretrained_path:
+        #     cache.clear_exp(uuid)
+        print(exp.vid_name)
+        if exp.vid_name == "park_joy":
+            cache.clear_exp(uuid)
         results = cache.load_exp(exp) # possibly load result
         if results is None: # check if no result
             exp.uuid = uuid
             results = run_exp(exp)
             cache.save_exp(uuid,exp,results) # save to cache
 
+
     # -- load results --
     records = cache.load_flat_records(exps)
-    # print(records[['timer_deno','model_name','mem_res']])
-    # exit(0)
-    # print(records)
-    # print(records.filter(like="timer"))
+    records = records.sort_values(by="pretrained_path")
 
     # -- neat report --
     fields = ["model_name",'sigma','vid_name','ws','wt',
-              "k","pretrained_path"]
-    fields_summ = ["model_name",'ws','wt',"k","pretrained_path"]
+              "k","pretrained_path","nl_dist_scale"]
+    fields_summ = ["pretrained_path","model_name",'ws','wt',"k","nl_dist_scale"]
     res_fields = ['psnrs','ssims','timer_deno','mem_alloc','mem_res']
     res_fmt = ['%2.3f','%1.3f','%2.3f','%2.3f','%2.3f','%2.3f']
 
-    # -- run agg --
+    # -- aggregate --
     agg = {key:[np.stack] for key in res_fields}
     grouped = records.groupby(fields).agg(agg)
     grouped.columns = res_fields
@@ -400,10 +399,14 @@ def main():
     for field in res_fields:
         grouped[field] = grouped[field].apply(np.mean)
     res_fmt = {k:v for k,v in zip(res_fields,res_fmt)}
+
+    # -- run agg --
     print("\n\n" + "-="*10+"-" + "Report" + "-="*10+"-")
     for sigma,sdf in grouped.groupby("sigma"):
         print("\n-----> sigma: %d <-----" % sigma)
         for gfields,gdf in sdf.groupby(fields_summ):
+
+            # -- take gfields --
             gfields = list(gfields)
 
             # -- header --

@@ -59,6 +59,7 @@ def load_model_deno(**kwargs):
     nl_temp_external_temp = optional(kwargs,'nl_temp_external_temp',True)
     nl_temp_temp_bias = optional(kwargs,'nl_temp_temp_bias',0.1)
     nl_cts_topk = optional(kwargs,'nl_cts_topk',False)
+    nl_dist_scale = optional(kwargs,'nl_dist_scale',1.)
 
     # -- dncnn --
     dncnn_bn = optional(kwargs,"dncnn_bn",True)
@@ -86,8 +87,8 @@ def load_model_deno(**kwargs):
     rbwd = optional(kwargs,'rbwd',True)
 
     # -- channel in/out --
-    ninchannels = optional(kwargs,"n3net_in_chnls",1)
-    noutchannels = optional(kwargs,"n3net_out_chnls",1)
+    ninchannels = optional(kwargs,"arch_in_chnls",1)
+    noutchannels = optional(kwargs,"arch_out_chnls",1)
 
     # -- io --
     def_path = get_default_path(base_dir,sigma,ntype)
@@ -125,7 +126,8 @@ def load_model_deno(**kwargs):
                   residual, dncnn_opt, nl_temp_opt, embedcnn_opt,
                   ws=ws, wt=wt, k=k, stride=stride, dilation=dilation,
                   patchsize=ps, pt=pt, batch_size=batch_size,
-                  nbwd=nbwd,rbwd=rbwd,use_cts_topk=nl_cts_topk)
+                  nbwd=nbwd,rbwd=rbwd,use_cts_topk=nl_cts_topk,
+                  dist_scale=nl_dist_scale)
     model = model.to(device)
 
     # -- load weights --

@@ -25,3 +25,68 @@ def print_peak_gpu_stats(verbose,name,reset=True):
         print(fmt % (name,mem_alloc))
     if reset: th.cuda.reset_peak_memory_stats()
     return mem_alloc,mem_res
+
+class GpuRecord():
+
+    def __init__(self):
+        self.mems = [] # reserved
+        self.mems_alloc = [] # allocated
+        self.names = []
+
+    def sortby(self,names):
+        assert set(names) == set(self.names),"must have all keys."
+        args = np.argsort(names)
+        self.mems = [self.mems[i] for i in args]
+        self.mems_alloc = [self.mems_alloc[i] for i in args]
+        self.names = [self.names[i] for i in args]
+
+    def __str__(self):
+        msg = "--- Gpu Mems ---\n"
+        for k,mem_res,mem_alloc in self.items(True):
+            msg += "\n%s: %2.3f, %2.3f\n" % (k,mem_res,mem_alloc)
+        return msg
+
+    def __getitem__(self,name):
+        idx = self.names.index(name)
+        gpu_mem = self.mems[idx]
+        return gpu_mem
+
+    def items(self,both=False):
+        if both:
+            return zip(self.names,self.mems,self.mems_alloc)
+        else:
+            return zip(self.names,self.mems)
+
+    def reset(self):
+        print_peak_gpu_stats(False,"",True)
+
+    def snap(self,name):
+        mem_alloc,mem_res = print_peak_gpu_stats(False,"",True)
+        self.names.append(name)
+        self.mems.append(mem_res)
+        self.mems_alloc.append(mem_alloc)
+
+class MemIt():
+    """
+
+    Support using GpuRecord and "with"
+
+    memer = GpuRecord()
+    with MemIt(memer,"name"):
+       ...
+
+    """
+
+    def __init__(self,memer,name):
+        self.memer = memer
+        self.name = name
+
+    def __enter__(self):
+        """Start a new timer as a context manager"""
+        self.memer.reset()
+        return self
+
+    def __exit__(self, *exc_info):
+        """Stop the context manager timer"""
+        self.memer.snap(self.name)
+

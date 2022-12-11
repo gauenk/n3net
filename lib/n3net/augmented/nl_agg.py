@@ -21,7 +21,7 @@ class N3AggregationBase(nn.Module):
     r"""
     Domain agnostic base class for computing neural nearest neighbors
     """
-    def __init__(self, k, use_cts_topk, temp_opt={}):
+    def __init__(self, k, use_cts_topk, dist_scale, temp_opt={}):
         r"""
         :param k: Number of neighbor volumes to compute
         :param temp_opt: options for handling temperatures, see `NeuralNearestNeighbors`
@@ -30,6 +30,7 @@ class N3AggregationBase(nn.Module):
         self.k = k
         self.temp_opt = temp_opt
         self.nnn = NeuralNearestNeighbors(k, temp_opt=temp_opt)
+        self.dist_scale = dist_scale
         self.use_cts_topk = use_cts_topk
 
     def forward(self, x, xe, ye, log_temp,
@@ -86,7 +87,8 @@ class N3AggregationBase(nn.Module):
             # print("W.shape: ",W.shape)
         else:
             # print(dists[:5,:10])
-            scale = 10.
+            scale = self.dist_scale
+            # print("scale: ",scale)
             dists = dists[None,:]
             # print("dists.mean((0,1))[:10]: ",dists.mean((0,1))[:10])
             W = F.softmax(scale*dists,2)
@@ -141,7 +143,7 @@ class N3Aggregation2D(nn.Module):
     """
     def __init__(self, k=7, patchsize=10, stride=1, dilation=1,
                  ws=29, wt=0, pt=1, batch_size=None, use_cts_topk=False,
-                 nbwd=1, rbwd=True, temp_opt={}):
+                 dist_scale=1.,nbwd=1, rbwd=True, temp_opt={}):
         r"""
         :param indexing: function for creating index tensor
         :param k: number of neighbor volumes
@@ -160,10 +162,12 @@ class N3Aggregation2D(nn.Module):
         self.nbwd = nbwd
         self.rbwd = rbwd
         self.temp_opt = temp_opt
+        self.dist_scale = dist_scale
         if k <= 0:
             self.aggregation = None
         else:
-            self.aggregation = N3AggregationBase(k, use_cts_topk, temp_opt=temp_opt)
+            self.aggregation = N3AggregationBase(k, use_cts_topk,
+                                                 dist_scale, temp_opt=temp_opt)
 
     def forward(self, x, xe, ye, y=None, log_temp=None, flows=None):
         r"""
@@ -216,7 +220,7 @@ class N3Aggregation2D(nn.Module):
         full_ws = True
         only_full = False
         border_str = "reflect" if rbounds else "zero"
-        remove_self = self.use_cts_topk
+        remove_self = True#self.use_cts_topk
 
         # -- init fold --
         unfold = dnls.iUnfold(ps,coords,stride=stride,dilation=dil,

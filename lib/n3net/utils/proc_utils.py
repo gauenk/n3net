@@ -28,6 +28,30 @@ def expand2square(timg,factor=16.0):
 
     return img, mask
 
+def proc_wrapper(cfg,model):
+    model.forward = get_fwd_fxn(cfg,model.forward)
+
+def get_fwd_fxn(cfg,model):
+    s_verbose = True
+    t_verbose = True
+    s_size = cfg.spatial_crop_size
+    s_overlap = cfg.spatial_crop_overlap
+    t_size = cfg.temporal_crop_size
+    t_overlap = cfg.temporal_crop_overlap
+    model_fwd = lambda vid,flows: model(vid,flows=flows)
+    if not(s_size is None) and not(s_size == "none") and not(s_size <= 0):
+        schop_p = lambda vid,flows: spatial_chop(s_size,s_overlap,model_fwd,vid,
+                                                 flows=flows,verbose=s_verbose)
+    else:
+        schop_p = model_fwd
+    if not(t_size is None) and not(t_size == "none") and not(t_size <= 0):
+        tchop_p = lambda vid,flows: temporal_chop(t_size,t_overlap,schop_p,vid,
+                                                  flows=flows,verbose=t_verbose)
+        fwd_fxn = tchop_p # rename
+    else:
+        fwd_fxn = schop_p
+    return fwd_fxn
+
 def get_chunks(size,chunk_size,overlap):
     """
 

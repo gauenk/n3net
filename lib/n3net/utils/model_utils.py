@@ -1,4 +1,3 @@
-import os
 import torch as th
 import numpy as np
 import torch.nn as nn
@@ -19,7 +18,8 @@ def is_frozen(model):
 
 def save_checkpoint(model_dir, state, session):
     epoch = state['epoch']
-    model_out_path = os.path.join(model_dir,"model_epoch_{}_{}.pth".format(epoch,session))
+    substr = "model_epoch_{}_{}.pth".format(epoch,session)
+    model_out_path = str(Path(model_dir) / substr)
     th.save(state, model_out_path)
 
 def select_sigma(sigma):
@@ -47,13 +47,17 @@ def load_checkpoint_lit(model,path):
     # -- filename --
     if not Path(path).exists():
         path = str("output/checkpoints/" / Path(path))
-    assert os.path.isfile(path)
+    assert Path(path).exists()
     weights = th.load(path)
     state = weights['state_dict']
     remove_lightning_load_state(state)
     model.load_state_dict(state)
 
 def load_checkpoint_git(model,path):
+    # -- filename --
+    if not Path(path).exists():
+        path = str("output/checkpoints/" / Path(path))
+    assert Path(path).exists()
     checkpoint = th.load(path)
     try:
         # model.load_state_dict(checkpoint["state_dict"])
