@@ -212,7 +212,8 @@ def main():
     # -- get cache --
     cache_dir = ".cache_io"
     # cache_name = "test_rgb_net" # current!
-    cache_name = "test_rgb_net_rebuttle_testing" # current!
+    cache_name = "test_rgb_net_1208" # current!
+    # cache_name = "test_rgb_net_rebuttle_testing" # current!
     # cache_name = "test_rgb_net_rebuttle_s50" # current!
     # cache_name = "test_rgb_net_rebuttle_s50_te" # current!
     # cache_name = "test_rgb_net_rebuttle_s25" # current!
@@ -249,6 +250,7 @@ def main():
     # cfg.pretrained_type = "lit"
     cfg.pretrained_type = "git"
     cfg.softax_scale = 1
+    cfg.nl_cts_topk = True
 
     # -- get mesh --
     k,bs,stride = [100],[1000*1024],[5]
@@ -268,7 +270,6 @@ def main():
     dnames = ["set8"]
     # use_train = ["true","false"]
     use_train = ["false"]#,"false"]
-
     pretrained_path = [
         # "e8c23b0c-9d4b-48a3-bba3-6acf2df4487e-epoch=01.ckpt",
         # "8872ea42-b1f9-4782-809b-e4ea2b6b8d03-epoch=00.ckpt",
@@ -282,10 +283,21 @@ def main():
     ]
     nl_dist_scale = [1]
     # nl_dist_scale = [1,10,20]
+    # pretrained_path = ["weights/results_gaussian_denoising/pretrained_sigma50/checkpoint/051_"]
+    # pretrained_path = [#"4633108c-4f34-4cfa-8b91-96b0e9687d10-epoch=00.ckpt",
+    #     #"fe87a4fa-2db6-4954-b401-0a58b6f617a6-epoch=01.ckpt",
+    #     # "03d0180a-5770-4c52-ab25-20ce3d8ffde1-epoch=07.ckpt"
+    #     "03d0180a-5770-4c52-ab25-20ce3d8ffde1-epoch=18.ckpt"
+    #     # "fc685b73-c3e9-482f-a23c-50be62c71c98-epoch=15.ckpt"
+    #     # "e44032bd-02cf-45e1-be33-8b646fd30dde-epoch=00.ckpt",
+    #     # "d72938ac-326f-4bed-b70f-671da5204926-epoch=01.ckpt",
+    #     # "b4ad0f17-2acd-42d9-8723-b3a05ce4e78b-epoch=01.ckpt"
+    # ]
     # pretrained_path = ["4633108c-4f34-4cfa-8b91-96b0e9687d10-epoch=08.ckpt"]
     # pretrained_path = ["b4a2e1f1-0e86-4935-8769-eef271fef07e-epoch=25.ckpt",
     #                    "1d5d6312-ebfc-495e-921e-eef12e3dbc03-epoch=00.ckpt",
     #                    "2b0a1e00-59fb-4f28-bb40-94b419f3d172-epoch=24.ckpt"]
+
     # use_train = ["false"]
     # use_train = ["true","false"]
     # sigmas = [50.]
@@ -362,17 +374,6 @@ def main():
         #     cache.clear_exp(uuid)
         # if exp.model_name == "augmented" and exp.use_train == "true":
         #     cache.clear_exp(uuid)
-        # cache.clear_exp(uuid)
-        # if exp.sigma == 30.:
-        #     cache.clear_exp(uuid)
-        # if exp.model_name == "original":
-        #     cache.clear_exp(uuid)
-        # cache.clear_exp(uuid)
-        # if "9a3f" in exp.pretrained_path and "03" in exp.pretrained_path:
-        #     cache.clear_exp(uuid)
-        print(exp.vid_name)
-        if exp.vid_name == "park_joy":
-            cache.clear_exp(uuid)
         results = cache.load_exp(exp) # possibly load result
         if results is None: # check if no result
             exp.uuid = uuid

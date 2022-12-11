@@ -209,7 +209,7 @@ def main():
     ws,wt,k = [15],[3],[100]
     # ws,wt,k = [21],[0],[7] # no "T"
     # sigma = [50.]#,30.,10.]
-    sigma = [25.]#,30.,10.]
+    sigma = [50.]#,30.,10.]
     # isize = ["156_156"]
     isize = ["128_128"]
     exp_lists = {"sigma":sigma,"ws":ws,"wt":wt,"k":k,
@@ -233,7 +233,7 @@ def main():
 
     # -- group with default --
     cfg = configs.default_train_cfg()
-    cfg.ndevices = 2
+    cfg.ndevices = 1
     cfg.dname = "davis_cropped"
     cfg.bw = False
     cfg.arch_in_chnls = 3
