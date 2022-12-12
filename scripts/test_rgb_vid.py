@@ -17,7 +17,8 @@ from easydict import EasyDict as edict
 import data_hub
 
 # -- optical flow --
-from n3net import flow
+# from n3net import flow
+from dev_basics import flow
 
 # -- caching results --
 import cache_io
@@ -54,7 +55,7 @@ def run_exp(cfg):
 
     # -- network --
     model_cfg = n3net.extract_model_io(cfg)
-    model = n3net.get_deno_model(**model_cfg)
+    model = n3net.load_model(model_cfg)
     model.eval()
     imax = 255.
 
@@ -97,11 +98,12 @@ def run_exp(cfg):
 
         # -- optical flow --
         timer.start("flow")
-        if cfg.flow == "true":
-            sigma_est = flow.est_sigma(noisy)
-            flows = flow.run_batch(noisy[None,:],sigma_est)
-        else:
-            flows = flow.run_zeros(noisy[None,:])
+        flows = flow.orun(noisy,cfg.flow)
+        # if cfg.flow == "true":
+        #     sigma_est = flow.est_sigma(noisy)
+        #     flows = flow.run_batch(noisy[None,:],sigma_est)
+        # else:
+        #     flows = flow.run_zeros(noisy[None,:])
         timer.stop("flow")
 
         # -- denoise --

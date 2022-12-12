@@ -27,78 +27,81 @@ def optional_full(init,pydict,field,default):
     return _optional(pydict,field,default)
 
 # -- model load wrapper --
-def load_model(**kwargs):
-    task = _optional(kwargs,"task","denoising")
+def load_model(cfg):
+    init = _optional(cfg,'__init',False) # purposefully weird key
+    optional = partial(optional_full,init)
+    task = _optional(cfg,"task","denoising")
     if task == "denoising":
-        return load_model_deno(**kwargs)
+        return load_model_deno(cfg)
     elif task == "sr":
         raise NotImplementedError("")
     else:
         raise ValueError(f"Uknown tasks [{task}]")
 
 # -- load model --
-def load_model_deno(**kwargs):
+def load_model_deno(cfg):
 
     # -- misc --
     base_dir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
-    init = _optional(kwargs,'__init',False) # purposefully weird key
+    init = _optional(cfg,'__init',False) # purposefully weird key
     optional = partial(optional_full,init)
-    device = optional(kwargs,'device','cuda:0')
-    nfeatures_interm = optional(kwargs,"nfeatures_interm",8)
-    ndncnn = optional(kwargs,"ndcnn",3)
-    ntype =  optional(kwargs,"ntype","gaussian")
-    model_name = optional(kwargs,"model_name","") # just add to model_cfg
+    device = optional(cfg,'device','cuda:0')
+    nfeatures_interm = optional(cfg,"nfeatures_interm",8)
+    ndncnn = optional(cfg,"ndcnn",3)
+    ntype =  optional(cfg,"ntype","gaussian")
+    model_name = optional(cfg,"model_name","") # just add to model_cfg
 
     # -- io --
-    sigma = optional(kwargs,"sigma",50.)
-    task = _optional(kwargs,"task","denoising")
+    sigma = optional(cfg,"sigma",50.)
+    task = _optional(cfg,"task","denoising")
 
     # -- non-local [temp] --
-    nl_temp_avgpool = optional(kwargs,'nl_temp_avgpool',True)
-    nl_temp_distance_bn = optional(kwargs,'nl_temp_distance_bn',True)
-    nl_temp_external_temp = optional(kwargs,'nl_temp_external_temp',True)
-    nl_temp_temp_bias = optional(kwargs,'nl_temp_temp_bias',0.1)
-    nl_cts_topk = optional(kwargs,'nl_cts_topk',False)
-    nl_dist_scale = optional(kwargs,'nl_dist_scale',1.)
+    nl_temp_avgpool = optional(cfg,'nl_temp_avgpool',True)
+    nl_temp_distance_bn = optional(cfg,'nl_temp_distance_bn',True)
+    nl_temp_external_temp = optional(cfg,'nl_temp_external_temp',True)
+    nl_temp_temp_bias = optional(cfg,'nl_temp_temp_bias',0.1)
+    nl_cts_topk = optional(cfg,'nl_cts_topk',False)
+    nl_dist_scale = optional(cfg,'nl_dist_scale',1.)
 
     # -- dncnn --
-    dncnn_bn = optional(kwargs,"dncnn_bn",True)
-    dncnn_depth = optional(kwargs,"dncnn_depth",6)
-    dncnn_kernel = optional(kwargs,"dncnn_kernel",3)
-    dncnn_features = optional(kwargs,"dncnn_features",64)
+    dncnn_bn = optional(cfg,"dncnn_bn",True)
+    dncnn_depth = optional(cfg,"dncnn_depth",6)
+    dncnn_kernel = optional(cfg,"dncnn_kernel",3)
+    dncnn_features = optional(cfg,"dncnn_features",64)
 
     # -- embedding --
-    embedcnn_features = optional(kwargs,"embedcnn_features",64)
-    embedcnn_depth = optional(kwargs,"embedcnn_depth",3)
-    embedcnn_kernel = optional(kwargs,"embedcnn_kernel",3)
-    embedcnn_nplanes_out = optional(kwargs,"embedcnn_nplanes_out",8)
-    embedcnn_bn = optional(kwargs,"embedcnn_bn",True)
+    embedcnn_features = optional(cfg,"embedcnn_features",64)
+    embedcnn_depth = optional(cfg,"embedcnn_depth",3)
+    embedcnn_kernel = optional(cfg,"embedcnn_kernel",3)
+    embedcnn_nplanes_out = optional(cfg,"embedcnn_nplanes_out",8)
+    embedcnn_bn = optional(cfg,"embedcnn_bn",True)
 
     # -- non-local options --
-    k = optional(kwargs,'k',7)
-    pt = optional(kwargs,'pt',1)
-    ps = optional(kwargs,'ps',10)
-    stride = optional(kwargs,'stride',5)
-    dilation = optional(kwargs,'dilation',1)
-    ws = optional(kwargs,'ws',15)
-    wt = optional(kwargs,'wt',0)
-    batch_size = optional(kwargs,'bs',None)
-    nbwd = optional(kwargs,'nbwd',1)
-    rbwd = optional(kwargs,'rbwd',True)
+    k = optional(cfg,'k',7)
+    pt = optional(cfg,'pt',1)
+    ps = optional(cfg,'ps',10)
+    stride = optional(cfg,'stride',5)
+    dilation = optional(cfg,'dilation',1)
+    ws = optional(cfg,'ws',15)
+    wt = optional(cfg,'wt',0)
+    batch_size = optional(cfg,'bs',None)
+    nbwd = optional(cfg,'nbwd',1)
+    rbwd = optional(cfg,'rbwd',True)
 
     # -- channel in/out --
-    ninchannels = optional(kwargs,"arch_in_chnls",1)
-    noutchannels = optional(kwargs,"arch_out_chnls",1)
+    ninchannels = optional(cfg,"arch_in_chnls",1)
+    noutchannels = optional(cfg,"arch_out_chnls",1)
 
     # -- io --
     def_path = get_default_path(base_dir,sigma,ntype)
-    pretrained_load = optional(kwargs,'pretrained_load',True)
-    pretrained_path = optional(kwargs,'pretrained_path',def_path)
-    pretrained_type = optional(kwargs,'pretrained_type',"git")
+    pretrained_load = optional(cfg,'pretrained_load',True)
+    pretrained_path = optional(cfg,'pretrained_path',def_path)
+    pretrained_root = optional(cfg,'pretrained_root',base_dir)
+    pretrained_type = optional(cfg,'pretrained_type',"git")
 
     # -- end init --
     if init: return
-    print("embedcnn_nplanes_out: ",embedcnn_nplanes_out)
+    # print("embedcnn_nplanes_out: ",embedcnn_nplanes_out)
 
     # -- args --
     nl_temp_opt = dict(
@@ -121,7 +124,7 @@ def load_model_deno(**kwargs):
 
     # -- declare model --
     residual = False
-    print(ws,wt,k,stride,dilation,ps,pt,batch_size,ninchannels)
+    # print(ws,wt,k,stride,dilation,ps,pt,batch_size,ninchannels)
     model = N3Net(ninchannels, noutchannels, nfeatures_interm, ndncnn,
                   residual, dncnn_opt, nl_temp_opt, embedcnn_opt,
                   ws=ws, wt=wt, k=k, stride=stride, dilation=dilation,
@@ -134,7 +137,8 @@ def load_model_deno(**kwargs):
     if pretrained_load:
 
         # -- fill weights --
-        load_checkpoint(model,pretrained_path,pretrained_type)
+        load_checkpoint(model,pretrained_path,
+                        pretrained_root,pretrained_type)
 
     # -- eval mode as default --
     model.eval()
@@ -156,4 +160,4 @@ def extract_model_io(cfg):
     return edict(model_cfg)
 
 # -- run to populate "_fields" --
-load_model(__init=True)
+load_model({"__init":True})

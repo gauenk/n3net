@@ -27,69 +27,68 @@ def optional_full(init,pydict,field,default):
     return _optional(pydict,field,default)
 
 # -- model load wrapper --
-def load_model(**kwargs):
-    task = _optional(kwargs,"task","denoising")
+def load_model(cfg):
+    task = _optional(cfg,"task","denoising")
     if task == "denoising":
-        return load_model_deno(**kwargs)
+        return load_model_deno(cfg)
     elif task == "sr":
         raise NotImplementedError("")
     else:
         raise ValueError(f"Uknown tasks [{task}]")
 
 # -- load model --
-def load_model_deno(**kwargs):
+def load_model_deno(cfg):
 
     # -- misc --
-    init = _optional(kwargs,'__init',False) # purposefully weird key
+    init = _optional(cfg,'__init',False) # purposefully weird key
     optional = partial(optional_full,init)
-    device = optional(kwargs,'device','cuda:0')
-    nfeatures_interm = optional(kwargs,"nfeatures_interm",8)
-    ndncnn = optional(kwargs,"ndcnn",3)
-    ntype =  optional(kwargs,"ntype","gaussian")
-    model_name = optional(kwargs,"model_name","") # just add to model_cfg
+    device = optional(cfg,'device','cuda:0')
+    nfeatures_interm = optional(cfg,"nfeatures_interm",8)
+    ndncnn = optional(cfg,"ndcnn",3)
+    ntype =  optional(cfg,"ntype","gaussian")
+    model_name = optional(cfg,"model_name","") # just add to model_cfg
 
     # -- io --
-    sigma = optional(kwargs,"sigma",50.)
-    task = _optional(kwargs,"task","denoising")
+    sigma = optional(cfg,"sigma",50.)
+    task = _optional(cfg,"task","denoising")
 
     # -- non-local [temp] --
-    nl_temp_avgpool = optional(kwargs,'nl_temp_avgpool',"true") == "true"
-    nl_temp_distance_bn = optional(kwargs,'nl_temp_distance_bn',"true") == "true"
-    nl_temp_external_temp = optional(kwargs,'nl_temp_external_temp',"true") == "true"
-    nl_temp_temp_bias = optional(kwargs,'nl_temp_temp_bias',0.1)
+    nl_temp_avgpool = optional(cfg,'nl_temp_avgpool',"true") == "true"
+    nl_temp_distance_bn = optional(cfg,'nl_temp_distance_bn',"true") == "true"
+    nl_temp_external_temp = optional(cfg,'nl_temp_external_temp',"true") == "true"
+    nl_temp_temp_bias = optional(cfg,'nl_temp_temp_bias',0.1)
 
     # -- dncnn --
-    dncnn_bn = optional(kwargs,"dncnn_bn","true") == "true"
-    dncnn_depth = optional(kwargs,"dncnn_depth",6)
-    dncnn_kernel = optional(kwargs,"dncnn_kernel",3)
-    dncnn_features = optional(kwargs,"dncnn_features",64)
+    dncnn_bn = optional(cfg,"dncnn_bn","true") == "true"
+    dncnn_depth = optional(cfg,"dncnn_depth",6)
+    dncnn_kernel = optional(cfg,"dncnn_kernel",3)
+    dncnn_features = optional(cfg,"dncnn_features",64)
 
     # -- embedding --
-    embedcnn_features = optional(kwargs,"embedcnn_features",64)
-    embedcnn_depth = optional(kwargs,"embedcnn_depth",3)
-    embedcnn_kernel = optional(kwargs,"embedcnn_kernel",3)
-    embedcnn_nplanes_out = optional(kwargs,"embedcnn_nplanes_out",8)
-    embedcnn_bn = optional(kwargs,"embedcnn_bn","true") == "true"
+    embedcnn_features = optional(cfg,"embedcnn_features",64)
+    embedcnn_depth = optional(cfg,"embedcnn_depth",3)
+    embedcnn_kernel = optional(cfg,"embedcnn_kernel",3)
+    embedcnn_nplanes_out = optional(cfg,"embedcnn_nplanes_out",8)
+    embedcnn_bn = optional(cfg,"embedcnn_bn","true") == "true"
 
     # -- non-local options --
-    k = optional(kwargs,'k',7)
+    k = optional(cfg,'k',7)
     k = 7
-    pt = optional(kwargs,'pt',1)
-    ps = optional(kwargs,'ps',7)
-    stride = optional(kwargs,'stride',5)
-    dilation = optional(kwargs,'dilation',1)
-    ws = optional(kwargs,'ws',-1)
-    wt = optional(kwargs,'wt',0)
-    batch_size = optional(kwargs,'bs',None)
+    pt = optional(cfg,'pt',1)
+    ps = optional(cfg,'ps',7)
+    stride = optional(cfg,'stride',5)
+    dilation = optional(cfg,'dilation',1)
+    ws = optional(cfg,'ws',-1)
+    wt = optional(cfg,'wt',0)
+    batch_size = optional(cfg,'bs',None)
 
     # -- io --
-    pretrained_load = optional(kwargs,'pretrained_load',True)
+    pretrained_load = optional(cfg,'pretrained_load',True)
 
     # -- end init --
     if init: return
-    print("pretrained_load: ",pretrained_load)
-    print("embedcnn_nplanes_out: ",embedcnn_nplanes_out)
-
+    # print("pretrained_load: ",pretrained_load)
+    # print("embedcnn_nplanes_out: ",embedcnn_nplanes_out)
 
     # -- args --
     nl_temp_opt = dict(
@@ -149,4 +148,4 @@ def extract_model_io(cfg):
     return edict(model_cfg)
 
 # -- run to populate "_fields" --
-load_model(__init=True)
+load_model({"__init":True})

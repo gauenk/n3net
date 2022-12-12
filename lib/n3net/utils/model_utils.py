@@ -35,29 +35,29 @@ def remove_lightning_load_state(state):
         state[name_new] = state[name]
         del state[name]
 
-def load_checkpoint(model, path, wtype="git"):
+def load_checkpoint(model, path, root, wtype="git"):
     if wtype in ["git","original"]:
-        load_checkpoint_git(model,path)
+        load_checkpoint_git(model,path,root)
     elif wtype in ["lightning","lit"]:
-        load_checkpoint_lit(model,path)
+        load_checkpoint_lit(model,path,root)
     else:
         raise ValueError(f"Uknown checkpoint weight type [{wtype}]")
 
-def load_checkpoint_lit(model,path):
+def load_checkpoint_lit(model,path,root):
     # -- filename --
     if not Path(path).exists():
-        path = str("output/checkpoints/" / Path(path))
-    assert Path(path).exists()
+        path = str(Path(root) / "output/checkpoints/" / Path(path))
+    assert Path(path).exists(),path
     weights = th.load(path)
     state = weights['state_dict']
     remove_lightning_load_state(state)
     model.load_state_dict(state)
 
-def load_checkpoint_git(model,path):
+def load_checkpoint_git(model,path,root):
     # -- filename --
     if not Path(path).exists():
-        path = str("output/checkpoints/" / Path(path))
-    assert Path(path).exists()
+        path = str(Path(root) / "output/checkpoints/" / Path(path))
+    assert Path(path).exists(),path
     checkpoint = th.load(path)
     try:
         # model.load_state_dict(checkpoint["state_dict"])

@@ -77,7 +77,7 @@ class DnCNN(nn.Module):
         self.kernelsize = kernel
         self.nplanes_residual = None
 
-        print(nplanes_in, features, kernel)
+        # print(nplanes_in, features, kernel)
         self.conv1 = convnxn(nplanes_in, features, kernelsize=kernel, bias=True)
         self.bn1 = nn.BatchNorm2d(features) if bn else nn.Sequential()
         self.relu = nn.ReLU(inplace=True)
@@ -202,7 +202,9 @@ class N3Block(nn.Module):
         # -- n3agg --
         self.nplanes_in = nplanes_in
         # self.nplanes_out = (k+1) * nplanes_in
+        # print(self.use_cts_topk)
         k_shape = 7 if self.use_cts_topk else 1
+        # print("nplanes_in: ",nplanes_in)
         self.nplanes_out = (k_shape+1) * nplanes_in # fixed "k == 7"
         # print("N3block: [in,out]",nplanes_in,self.nplanes_out,self.use_cts_topk)
         # print("self.nplanes_out: ",self.nplanes_out)
@@ -260,12 +262,12 @@ class N3Net(nn.Module):
         self.nplanes_out = nplanes_out
         self.nblocks = nblocks
         self.residual = residual
-        print("nplanes_in,nplanes_out,nplanes_interm: ",nplanes_in,nplanes_out,nplanes_interm)
+        self.times = {}
 
         nin = nplanes_in
         cnns,nls = [],[]
         for i in range(nblocks-1):
-            print("nin,nplanes_interm: ",nin,nplanes_interm)
+            # print("nin,nplanes_interm: ",nin,nplanes_interm)
             cnns.append(DnCNN(nin, nplanes_interm, **block_opt))
             nl = N3Block(nplanes_interm,k=k,patchsize=patchsize,
                          stride=stride,dilation=dilation,
@@ -276,7 +278,7 @@ class N3Net(nn.Module):
                          embedcnn_opt=embedcnn_opt,
                          nbwd=nbwd,rbwd=rbwd)
             nin = nl.nplanes_out
-            print("nin: ",nin)
+            # print("nin: ",nin)
             nls.append(nl)
 
         nout = nplanes_out
