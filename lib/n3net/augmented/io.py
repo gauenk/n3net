@@ -76,6 +76,9 @@ def load_model_deno(cfg):
     embedcnn_nplanes_out = optional(cfg,"embedcnn_nplanes_out",8)
     embedcnn_bn = optional(cfg,"embedcnn_bn",True)
 
+    # -- benchamrk --
+    attn_timer = optional(cfg,"attn_timer",False)
+
     # -- non-local options --
     k = optional(cfg,'k',7)
     pt = optional(cfg,'pt',1)
@@ -85,6 +88,7 @@ def load_model_deno(cfg):
     ws = optional(cfg,'ws',15)
     wt = optional(cfg,'wt',0)
     batch_size = optional(cfg,'bs',None)
+    nl_agg_unfold = optional(cfg,'nl_agg_unfold',False)
     nbwd = optional(cfg,'nbwd',1)
     rbwd = optional(cfg,'rbwd',True)
 
@@ -130,7 +134,8 @@ def load_model_deno(cfg):
                   ws=ws, wt=wt, k=k, stride=stride, dilation=dilation,
                   patchsize=ps, pt=pt, batch_size=batch_size,
                   nbwd=nbwd,rbwd=rbwd,use_cts_topk=nl_cts_topk,
-                  dist_scale=nl_dist_scale)
+                  dist_scale=nl_dist_scale,attn_timer=attn_timer,
+                  nl_agg_unfold=nl_agg_unfold)
     model = model.to(device)
 
     # -- load weights --

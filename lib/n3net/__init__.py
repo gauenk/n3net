@@ -15,7 +15,8 @@ from .shared_model import ops
 
 # -- api for searching --
 from . import search
-from .search import init_search,extract_search_config
+from .search import get_search,extract_search_config
+from .agg import get_agg,extract_agg_config
 
 # -- papers --
 from . import aaai23

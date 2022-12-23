@@ -16,12 +16,17 @@ from dnls.utils.pads import comp_pads
 from n3net.utils.misc import get_flows
 from .non_local import NeuralNearestNeighbors
 from .non_local import vid_index_neighbours,vid_to_raster_inds
+from . import nn_timer
+
+from dev_basics.utils.timer import ExpTimerList,ExpTimer
+from dev_basics.utils import clean_code
 
 class N3AggregationBase(nn.Module):
     r"""
     Domain agnostic base class for computing neural nearest neighbors
     """
-    def __init__(self, k, use_cts_topk, dist_scale, temp_opt={}):
+    def __init__(self, k, use_cts_topk, dist_scale, temp_opt={}, attn_timer=False,
+                 use_unfold = False):
         r"""
         :param k: Number of neighbor volumes to compute
         :param temp_opt: options for handling temperatures, see `NeuralNearestNeighbors`
@@ -32,10 +37,13 @@ class N3AggregationBase(nn.Module):
         self.nnn = NeuralNearestNeighbors(k, temp_opt=temp_opt)
         self.dist_scale = dist_scale
         self.use_cts_topk = use_cts_topk
+        self.use_timer = attn_timer
+        self.use_unfold = use_unfold
+        # self.times = ExpTimerList(self.use_timer)
 
     def forward(self, x, xe, ye, log_temp,
                 search, unfold, fold, wpsum,
-                qindex, nbatch_i):
+                qindex, nbatch_i, timer):
         r"""
         :param x: database items, shape BxNxF
         :param xe: embedding of database items, shape BxNxE
@@ -49,10 +57,12 @@ class N3AggregationBase(nn.Module):
 
         # -- compute distance --
         # print("xe.shape,ye.shape: ",xe.shape,ye.shape)
+        timer.sync_start("search")
         dists,inds = search(xe[None,:],qindex,nbatch_i,ye[None,:])
+        timer.sync_stop("search")
         dists,inds = dists[0],inds[0]
         dists = -dists
-        # print("dists.shape: ",dists.shape)
+
         # print(xe.max(),xe.min())
         # print(ye.max(),ye.min())
 
@@ -104,7 +114,8 @@ class N3AggregationBase(nn.Module):
         # print("z_patches.shape: ",z_patches.shape)
         ps = search.ps
 
-        use_unfold = True
+        timer.sync_start("agg")
+        use_unfold = self.use_unfold
         if use_unfold:
 
             # -- get indices --
@@ -126,16 +137,22 @@ class N3AggregationBase(nn.Module):
             shape_str = 'b q (c ph pw) k -> b q 1 1 (k c) ph pw'
             z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
         else:
+            # print("x.shape: ",x.shape)
+            # print("W.shape: ",W.shape)
+            # print("inds.shape: ",inds.shape)
             z_patches = wpsum(x[None,:],W[None,:],inds[None,:]) # b self.k c h w
             shape_str = 'b k q c ph pw -> b q 1 1 (k c) ph pw'
             z_patches = rearrange(z_patches,shape_str,ph=ps,pw=ps)
-            fold(z_patches,qindex)
-
+            # fold(z_patches,qindex)
+        timer.sync_stop("agg")
 
         # -- fold into video --
         # print("z_patches.shape: ",z_patches.shape)
+        timer.sync_start("fold")
         fold(z_patches,qindex)
+        timer.sync_stop("fold")
 
+@clean_code.add_methods_from(nn_timer)
 class N3Aggregation2D(nn.Module):
     r"""
     Computes neural nearest neighbors for image data based on extracting patches
@@ -143,7 +160,8 @@ class N3Aggregation2D(nn.Module):
     """
     def __init__(self, k=7, patchsize=10, stride=1, dilation=1,
                  ws=29, wt=0, pt=1, batch_size=None, use_cts_topk=False,
-                 dist_scale=1.,nbwd=1, rbwd=True, temp_opt={}):
+                 dist_scale=1.,nbwd=1, rbwd=True, attn_timer=False,
+                 nl_agg_unfold=False, temp_opt={}):
         r"""
         :param indexing: function for creating index tensor
         :param k: number of neighbor volumes
@@ -163,11 +181,16 @@ class N3Aggregation2D(nn.Module):
         self.rbwd = rbwd
         self.temp_opt = temp_opt
         self.dist_scale = dist_scale
+        self.use_timer = attn_timer
+        self.times = ExpTimerList(self.use_timer)
+        self.use_unfold = nl_agg_unfold
         if k <= 0:
             self.aggregation = None
         else:
             self.aggregation = N3AggregationBase(k, use_cts_topk,
-                                                 dist_scale, temp_opt=temp_opt)
+                                                 dist_scale, temp_opt=temp_opt,
+                                                 attn_timer = attn_timer,
+                                                 use_unfold=self.use_unfold)
 
     def forward(self, x, xe, ye, y=None, log_temp=None, flows=None):
         r"""
@@ -184,6 +207,10 @@ class N3Aggregation2D(nn.Module):
         if y is None:
             y = x
             ye = xe
+
+        # -- init timer --
+        timer = ExpTimer(self.use_timer)
+        timer.sync_start("attn")
 
         # -- flows --
         fflow,bflow = get_flows(flows,(1,)+x.shape,x.device)
@@ -266,17 +293,22 @@ class N3Aggregation2D(nn.Module):
         ntotal_t = nh * nw
         ntotal = t * ntotal_t
         nbatch = self.batch_size
-        if nbatch is None: nbatch = t*ntotal_t
+        # print("self.batch_size: ",self.batch_size)
+        if (nbatch is -1) or (nbatch is None):
+            nbatch = t*ntotal_t
         nbatch = min(nbatch,ntotal)
         # nbatch = ntotal
         nbatches = (ntotal-1) // nbatch + 1
+
+        # -- check batching --
+        if self.use_unfold:
+            assert nbatches == 1
 
         # -- aggregation --
         if self.aggregation is None:
             return y if y is not None else x
 
         # -- run for batches --
-        assert nbatches == 1
         for batch in range(nbatches):
 
             # -- batch info --
@@ -286,7 +318,7 @@ class N3Aggregation2D(nn.Module):
             # -- exec --
             self.aggregation(x,xe,ye,log_temp,
                              search,unfold,fold,wpsum,
-                             qindex,nbatch_i)
+                             qindex,nbatch_i,timer)
 
         # -- final steps --
         vid,zvid = fold.vid[0],fold.zvid[0]
@@ -294,6 +326,7 @@ class N3Aggregation2D(nn.Module):
         if th.any(th.isnan(z)).item():
             print("isnan(z)")
             exit(0)
+
         # print("[a] z.shape: ",z.shape)
         z = z.contiguous().view(t,k_shape,c,h,w)
         # print("[b] z.shape: ",z.shape)
@@ -308,6 +341,10 @@ class N3Aggregation2D(nn.Module):
 
         z = th.cat([y, z], dim=1)
         z = z[...,1:-1,1:-1].contiguous()
+        timer.sync_stop("attn")
+
+        # -- update times --
+        self._update_times(timer)
 
         # print("z.shape: ",z.shape)
         return z

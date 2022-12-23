@@ -6,10 +6,19 @@ Tobias Plötz and Stefan Roth, Neural Nearest Neighbors Networks.
 Please see the file LICENSE.txt for the license governing this code.
 '''
 
+# -- pytorch --
 import math
 import torch as th
 import torch.nn as nn
+
+# -- modules --
 from . import nl_agg
+from . import nn_timer
+
+# -- separate class and logic --
+from dev_basics.utils.timer import ExpTimerList
+from dev_basics.utils import clean_code
+
 
 # class Conv2dFlops(nn.Module):
 #     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
@@ -157,7 +166,8 @@ class N3Block(nn.Module):
                  k=7, patchsize=10, stride=1, dilation=1,
                  ws=29, wt=0, pt=1, batch_size=None,
                  use_cts_topk = False, dist_scale=1.,
-                 nbwd = 1, rbwd = True,
+                 nbwd = 1, rbwd = True, attn_timer=False,
+                 nl_agg_unfold=False,
                  temp_opt={}, embedcnn_opt={}):
         r"""
         :param nplanes_in: number of input features
@@ -185,6 +195,7 @@ class N3Block(nn.Module):
         self.dist_scale = dist_scale
         self.nbwd = nbwd
         self.rbwd = rbwd
+        self.use_timer = attn_timer
 
         # -- patch embedding --
         embedcnn_opt["nplanes_in"] = nplanes_in
@@ -214,9 +225,17 @@ class N3Block(nn.Module):
             use_cts_topk=use_cts_topk,
             dist_scale=dist_scale,
             nbwd = nbwd, rbwd = rbwd,
-            temp_opt=temp_opt)
+            temp_opt=temp_opt, attn_timer=attn_timer,
+            nl_agg_unfold=nl_agg_unfold)
 
         self.reset_parameters()
+
+    @property
+    def times(self):
+        return self.n3aggregation.times
+
+    def _reset_times(self):
+        self.n3aggregation._reset_times()
 
     def forward(self, x, flows):
         if self.k <= 0:
@@ -238,6 +257,7 @@ class N3Block(nn.Module):
             if isinstance(m, (nn.BatchNorm2d)):
                 dncnn_batchnorm_init(m, kernelsize=3, b_min=0.025)
 
+@clean_code.add_methods_from(nn_timer)
 class N3Net(nn.Module):
     r"""
     A N3Net interleaves DnCNNS for local processing with N3Blocks for non-local processing
@@ -246,7 +266,8 @@ class N3Net(nn.Module):
                  residual, block_opt, nl_temp_opt, embedcnn_opt,
                  ws=29, wt=0, k=7, stride=5, dilation=1,
                  patchsize=10, pt=1, batch_size=None, use_cts_topk=False,
-                 dist_scale=1., nbwd=1, rbwd=True):
+                 dist_scale=1., nbwd=1, rbwd=True, attn_timer=False,
+                 nl_agg_unfold=False):
 
         r"""
         :param nplanes_in: number of input features
@@ -276,7 +297,8 @@ class N3Net(nn.Module):
                          use_cts_topk=use_cts_topk,
                          dist_scale=dist_scale,
                          embedcnn_opt=embedcnn_opt,
-                         nbwd=nbwd,rbwd=rbwd)
+                         nbwd=nbwd,rbwd=rbwd,attn_timer=attn_timer,
+                         nl_agg_unfold=nl_agg_unfold)
             nin = nl.nplanes_out
             # print("nin: ",nin)
             nls.append(nl)
@@ -286,6 +308,20 @@ class N3Net(nn.Module):
 
         self.nls = nn.Sequential(*nls)
         self.blocks = nn.Sequential(*cnns)
+
+        # -- timing --
+        self.use_timer = attn_timer
+        self.times = ExpTimerList(self.use_timer)
+
+    def update_times(self):
+        for i in range(self.nblocks-1):
+            self._update_times(self.nls[i].times)
+            self.nls[i]._reset_times()
+
+    def reset_times(self):
+        for i in range(self.nblocks-1):
+            self.nls[i]._reset_times()
+        self._reset_times()
 
     def forward(self, x, flows=None):
         # print("refactored.")
@@ -297,6 +333,9 @@ class N3Net(nn.Module):
         if self.residual:
             nshortcut = min(self.nplanes_in, self.nplanes_out)
             x[:,:nshortcut,:,:] = x[:,:nshortcut,:,:] + shortcut[:,:nshortcut,:,:]
+
+        # -- udpate timer --
+        self.update_times()
 
         return x
 
