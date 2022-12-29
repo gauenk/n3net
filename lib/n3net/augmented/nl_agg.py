@@ -294,7 +294,7 @@ class N3Aggregation2D(nn.Module):
         ntotal = t * ntotal_t
         nbatch = self.batch_size
         # print("self.batch_size: ",self.batch_size)
-        if (nbatch is -1) or (nbatch is None):
+        if (nbatch == -1) or (nbatch is None):
             nbatch = t*ntotal_t
         nbatch = min(nbatch,ntotal)
         # nbatch = ntotal
