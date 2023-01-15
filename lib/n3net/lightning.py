@@ -19,9 +19,12 @@ import dnls
 import data_hub
 
 # -- optical flow --
-# import svnlb
-from n3net import flow
-import skimage
+from dev_basics import flow
+from dev_basics.utils.misc import rslice,write_pickle,read_pickle
+from dev_basics.utils.metrics import compute_psnrs,compute_ssims
+from dev_basics.utils.timer import ExpTimer
+import dev_basics.utils.gpu_mem as gpu_mem
+
 
 # -- network --
 import n3net
@@ -47,13 +50,20 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 
 class N3NetLit(pl.LightningModule):
 
-    def __init__(self,model_cfg,flow=True,isize=None,batch_size=1,
-                 lr_init=0.0002,lr_final=1e-8,weight_decay=0.,nepochs=250,
-                 scheduler="default",task="denoise",uuid="default"):
+    # def __init__(self,model_cfg,batch_size=1,flow=True,
+    #              isize=None,bw=False,
+    #              lr_init=1e-3,lr_final=1e-8,weight_decay=1e-4,nepochs=0,
+    #              warmup_epochs=0,scheduler="default",
+    #              task=0,uuid="",sim_type="g",sim_device="cuda:0"):
+
+    def __init__(self,model_cfg,batch_size=1,flow=True,isize=None,bw=False,
+                 lr_init=0.0002,lr_final=1e-8,weight_decay=0.,nepochs=30,
+                 warmup_epochs=0,scheduler="default",
+                 task="denoise",uuid="",sim_type="g",sim_device="cuda:0"):
         super().__init__()
-        self.model = n3net.get_deno_model(**model_cfg)
+        self.model = n3net.get_deno_model(model_cfg)
         self.model.train()
-        self.model_name = model_cfg.model_name
+        self.warmup_epochs = warmup_epochs
         self.sigma = model_cfg.sigma
         self.batch_size = batch_size
         self.flow = flow
@@ -69,38 +79,11 @@ class N3NetLit(pl.LightningModule):
         self.gen_loger.setLevel("NOTSET")
 
     def forward(self,vid):
-        if self.model_name in ["dnls_k","dnls","refactored","augmented"]:
-            return self.forward_dnls_k(vid)
-        elif self.model_name in ["default","original"]:
-            return self.forward_default(vid)
-        else:
-            msg = f"Uknown model name [{self.model_name}]"
-            raise ValueError(msg)
-
-    def forward_dnls_k(self,vid):
-        flows = self._get_flow(vid)
+        flows = flow.orun(vid,self.flow)
         deno = self.model(vid,flows=flows)
-        deno = th.clamp(deno,0.,1.)
         return deno
-
-    def forward_default(self,vid):
-        deno = self.model(vid)
-        deno = th.clamp(deno,0.,1.)
-        return deno
-
-    def _get_flow(self,vid):
-        if self.flow == True:
-            sigma_est = flow.est_sigma(vid[0])
-            flows = flow.run_batch(vid[None,:],sigma_est)
-        else:
-            t,c,h,w = vid.shape
-            zflows = th.zeros((1,t,2,h,w)).to(self.device)
-            flows = edict()
-            flows.fflow,flows.bflow = zflows,zflows
-        return flows
 
     def configure_optimizers(self):
-        print(self.lr_init,self.weight_decay)
         optim = th.optim.Adam(self.parameters(),lr=self.lr_init,
                               weight_decay=self.weight_decay)
         sched = self.configure_scheduler(optim)
