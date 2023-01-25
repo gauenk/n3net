@@ -26,7 +26,7 @@ def load_model(cfg):
     return get_deno_model(cfg)
 
 def get_deno_model(cfg):
-    model_name = optional(cfg,"model_name","augmented")
+    model_name = optional(cfg,"model_type","augmented")
     device = optional(cfg,"device","cuda:0")
     if model_name == "original":
         model = original.load_model(cfg).to(device)

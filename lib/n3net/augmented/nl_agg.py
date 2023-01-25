@@ -58,7 +58,7 @@ class N3AggregationBase(nn.Module):
         # -- compute distance --
         # print("xe.shape,ye.shape: ",xe.shape,ye.shape)
         timer.sync_start("search")
-        dists,inds = search(xe[None,:],qindex,nbatch_i,ye[None,:])
+        dists,inds = search(xe[None,:],ye[None,:],qindex,nbatch_i)
         timer.sync_stop("search")
         dists,inds = dists[0],inds[0]
         dists = -dists
