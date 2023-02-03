@@ -263,18 +263,18 @@ class N3Aggregation2D(nn.Module):
         h0_off,w0_off,h1_off,w1_off = 0,0,0,0
         # h0_off,w0_off,h1_off,w1_off = -2,-2,-2,-2
         # h0_off,w0_off,h1_off,w1_off = -3,-3,-3,-3
-        search = dnls.search.init("l2_with_index",fflow, bflow, k_search,
-                                  ps, pt, ws, wt,
-                                  chnls=-1,dilation=dil,
-                                  stride0=stride,stride1=stride,
-                                  reflect_bounds=reflect_bounds,
-                                  search_abs=use_search_abs,
-                                  use_k=use_k,use_adj=use_adj,
-                                  full_ws=full_ws,exact=exact,
-                                  h0_off=h0_off,w0_off=w0_off,
-                                  h1_off=h1_off,w1_off=w1_off,
-                                  remove_self=remove_self,
-                                  rbwd=self.rbwd,nbwd=self.nbwd)
+        search = dnls.search_dev.init("l2_with_index",fflow, bflow, k_search,
+                                      ps, pt, ws, wt,
+                                      chnls=-1,dilation=dil,
+                                      stride0=stride,stride1=stride,
+                                      reflect_bounds=reflect_bounds,
+                                      search_abs=use_search_abs,
+                                      use_k=use_k,use_adj=use_adj,
+                                      full_ws=full_ws,exact=exact,
+                                      h0_off=h0_off,w0_off=w0_off,
+                                      h1_off=h1_off,w1_off=w1_off,
+                                      remove_self=remove_self,
+                                      rbwd=self.rbwd,nbwd=self.nbwd)
 
         # -- weighted patch sum --
         h_off,w_off = 0,0
