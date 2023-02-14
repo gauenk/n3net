@@ -19,6 +19,10 @@ from . import search
 from .search import get_search,extract_search_config
 from .agg import get_agg,extract_agg_config
 
+# -- api for aggregating --
+from .shared_model.ops import indexed_matmul_2_efficient
+from .augmented import vid_to_raster_inds
+
 # -- papers --
 from . import aaai23
 

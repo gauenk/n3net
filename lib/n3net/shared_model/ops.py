@@ -63,6 +63,11 @@ class IndexedMatmul2Efficient(torch.autograd.Function):
         n,e = x.shape[1:3] # b n f
         m = I.shape[1] # b m o
         x_interm = x.view(b,1,n,e).detach()
+        # b = batchsize
+        # m = # of patches in image
+        # n = # of searched locations
+        # o = # searched per location; accumulated over.
+        # k = # of parallel sets of weights
 
         # -- viz --
         # print("x_interm.shape: ",x_interm.shape)
@@ -79,10 +84,15 @@ class IndexedMatmul2Efficient(torch.autograd.Function):
             I_chunk = I[:,m_offset:m_offset+this_chunk_size,:]
             y_chunk = y[:,m_offset:m_offset+this_chunk_size,:,:]
             # print("y_chunk.shape: ",y_chunk.shape)
+
+            # -- create empty shell of weights --
             If = I_chunk.view(b,1,this_chunk_size,o).expand(b,k,this_chunk_size,o)
             y_full = torch.cuda.FloatTensor(b,k,this_chunk_size,n).fill_(0)
             # y_full =y_full.scatter_add(source=y_chunk.permute(0,3,1,2), index=If,dim=3)
+
+            # -- accumulate over "this_chunk_size"; gaurenteed unique --
             y_full = y_full.scatter_add(3,If,y_chunk.permute(0,3,1,2))
+
             # if m_offset == 0:
             #     print("y_chunk.permute(...).shape: ",y_chunk.permute(0,3,1,2).shape)
             #     print("y_full.shape: ",y_full.shape)
