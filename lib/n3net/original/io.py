@@ -19,7 +19,8 @@ from n3net.utils.misc import optional
 from n3net.utils.model_utils import load_checkpoint,select_sigma,get_model_weights
 
 def load_model(cfg=None):
-    mtype = optional(cfg,"model_type","denoising")
+    # mtype = optional(cfg,"model_type","denoising")
+    mtype = "denoising"
     if mtype == "denoising":
         return load_model_deno(cfg)
     elif mtype == "sr":
@@ -70,6 +71,14 @@ def load_model_deno(cfg):
     k = optional(cfg,'k',-1)
     sb = optional(cfg,'sb',None)
 
+    # -- io --
+    base_dir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
+    def_path = get_default_path(base_dir,sigma,ntype)
+    pretrained_load = optional(cfg,'pretrained_load',True)
+    pretrained_path = optional(cfg,'pretrained_path',def_path)
+    pretrained_root = optional(cfg,'pretrained_root',base_dir)
+    pretrained_type = optional(cfg,'pretrained_type',"git")
+
     # -- args --
     ninchannels=1
     noutchannels=1
@@ -104,17 +113,25 @@ def load_model_deno(cfg):
     model = model.to(device)
 
     # -- load weights --
-    fdir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
-    state_fn = get_model_weights(fdir,sigma,ntype)
-    print("state_fn: ",state_fn)
-    assert os.path.isfile(str(state_fn))
+    # fdir = Path(__file__).absolute().parents[0] / "../../../" # parent of "./lib"
+    # state_fn = get_model_weights(fdir,sigma,ntype)
+    # print("state_fn: ",state_fn)
+    # assert os.path.isfile(str(state_fn))
 
-    # -- fill weights --
-    load_checkpoint(model,state_fn)
+    # -- load weights --
+    if pretrained_load:
+
+        # -- fill weights --
+        load_checkpoint(model,pretrained_path,
+                        pretrained_root,pretrained_type)
 
     # -- eval mode as default --
     model.eval()
 
     return model
+
+
+def get_default_path(base_dir,sigma,ntype):
+    return get_model_weights(base_dir,sigma,ntype)
 
 

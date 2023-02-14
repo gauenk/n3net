@@ -9,6 +9,7 @@ Please see the file LICENSE.txt for the license governing this code.
 import math
 
 import torch.nn as nn
+from dev_basics.utils.timer import ExpTimerList
 
 from . import non_local
 
@@ -223,6 +224,10 @@ class N3Net(nn.Module):
 
         self.nls = nn.Sequential(*nls)
         self.blocks = nn.Sequential(*cnns)
+
+        # -- timing --
+        self.use_timer = False
+        self.times = ExpTimerList(self.use_timer)
 
     def forward(self, x, flows=None): # flows_is_none
         # print("original.")

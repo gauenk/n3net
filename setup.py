@@ -9,12 +9,13 @@ from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 setup(
     name='n3net_matmul',
+    package_dir={"": "lib"},
     packages=["n3net"],
     ext_modules=[
         CUDAExtension('n3net_matmul_cuda', [
-            'csrc/matmul.cpp',
-            'csrc/matmul1_kernel.cu',
-            'csrc/matmul1_bwd_kernel.cu',
+            'lib/csrc/matmul.cpp',
+            'lib/csrc/matmul1_kernel.cu',
+            'lib/csrc/matmul1_bwd_kernel.cu',
         ]),
     ],
     cmdclass={
