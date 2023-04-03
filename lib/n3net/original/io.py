@@ -65,7 +65,7 @@ def load_model_deno(cfg):
     embedcnn_bn = optional(cfg,"embedcnn_bn","true") == "true"
 
     # -- relevant configs --
-    fwd_mode = optional(cfg,'fwd_mode',"dnls_k")
+    fwd_mode = optional(cfg,'fwd_mode',"stnls_k")
     ws = optional(cfg,'ws',-1)
     wt = optional(cfg,'wt',0)
     k = optional(cfg,'k',-1)

@@ -16,7 +16,7 @@ from torch.autograd import Variable
 import n3net.shared_model.ops as ops
 
 
-import dnls
+import stnls
 import numpy as np
 
 r"""
@@ -55,7 +55,7 @@ def compute_distances(xe, ye, I, train=True):
     # print(args)
     # vid= th.zeros((64,64))
     # vid[args] = 1
-    # dnls.testing.data.save_burst(vid[None,None],"./output/","i00_map")
+    # stnls.testing.data.save_burst(vid[None,None],"./output/","i00_map")
     # print("I.shape: ",I.shape)
 
     # idx = I[0,25*13+13].cpu().numpy()
@@ -63,7 +63,7 @@ def compute_distances(xe, ye, I, train=True):
     # print(args)
     # vid= th.zeros((64,64))
     # vid[args] = 1
-    # dnls.testing.data.save_burst(vid[None,None],"./output/","imid_map")
+    # stnls.testing.data.save_burst(vid[None,None],"./output/","imid_map")
 
     # exit(0)
 

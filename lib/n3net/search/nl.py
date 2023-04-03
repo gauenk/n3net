@@ -1,4 +1,4 @@
-import dnls
+import stnls
 import torch as th
 import torch.nn as nn
 from einops import rearrange
@@ -19,7 +19,7 @@ def get_search(k,ps,ws,wt,stride0,stride1):
     # anchor_self = False
     # use_self = anchor_self
     # print(k,ps,pt,ws,wt,nheads)
-    search = dnls.dev.search.init("l2_with_index", fflow, bflow,
+    search = stnls.search.init("l2_with_index", fflow, bflow,
                               k, ps, pt, ws, wt, chnls=-1,
                               dilation=dil, stride0=stride0,stride1=stride1,
                               h0_off=0,w0_off=0,h1_off=0,w1_off=0,

@@ -10,9 +10,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-import dnls
+import stnls
 import n3net
-from dnls.utils.pads import comp_pads
+from stnls.utils.pads import comp_pads
 from n3net.utils.misc import get_flows
 from .non_local import NeuralNearestNeighbors
 from .non_local import vid_index_neighbours,vid_to_raster_inds
@@ -250,9 +250,9 @@ class N3Aggregation2D(nn.Module):
         remove_self = True#self.use_cts_topk
 
         # -- init fold --
-        unfold = dnls.iUnfold(ps,coords,stride=stride,dilation=dil,
+        unfold = stnls.iUnfold(ps,coords,stride=stride,dilation=dil,
                               adj=adj,border=border_str,only_full=only_full)
-        fold = dnls.iFoldz((1,)+vshape,coords,stride=stride,dilation=dil,
+        fold = stnls.iFoldz((1,)+vshape,coords,stride=stride,dilation=dil,
                           adj=adj,use_reflect=rbounds,only_full=only_full)
 
         # -- init search --
@@ -263,7 +263,7 @@ class N3Aggregation2D(nn.Module):
         h0_off,w0_off,h1_off,w1_off = 0,0,0,0
         # h0_off,w0_off,h1_off,w1_off = -2,-2,-2,-2
         # h0_off,w0_off,h1_off,w1_off = -3,-3,-3,-3
-        search = dnls.search_dev.init("l2_with_index",fflow, bflow, k_search,
+        search = stnls.search_dev.init("l2_with_index",fflow, bflow, k_search,
                                       ps, pt, ws, wt,
                                       chnls=-1,dilation=dil,
                                       stride0=stride,stride1=stride,
@@ -280,7 +280,7 @@ class N3Aggregation2D(nn.Module):
         h_off,w_off = 0,0
         # adj = 0
         # h_off,w_off = -3,-3
-        wpsum = dnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
+        wpsum = stnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
                                                     dilation=dil, adj=adj,
                                                     exact=exact,rbwd=True,
                                                     reflect_bounds=reflect_bounds)

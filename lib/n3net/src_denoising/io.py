@@ -51,7 +51,7 @@ def load_model(sigma,**kwargs):
     embedcnn_depth = optional(cfg,"embedcnn_depth",3)
 
     # -- relevant configs --
-    fwd_mode = optional(kwargs,'fwd_mode',"dnls_k")
+    fwd_mode = optional(kwargs,'fwd_mode',"stnls_k")
     ws = optional(kwargs,'ws',-1)
     wt = optional(kwargs,'wt',0)
     k = optional(kwargs,'k',-1)

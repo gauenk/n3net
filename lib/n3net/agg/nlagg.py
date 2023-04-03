@@ -1,10 +1,10 @@
 """
 
-Aggregation using the dnls method
+Aggregation using the stnls method
 
 """
 
-import dnls
+import stnls
 from einops import rearrange
 
 def init_agg(ps):
@@ -16,7 +16,7 @@ def init_agg(ps):
     exact = False
     rbwd = False
     reflect_bounds = False
-    wpsum = dnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
+    wpsum = stnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
                                                 dilation=dil, adj=adj,
                                                 exact=exact,rbwd=rbwd,
                                                 reflect_bounds=reflect_bounds)
