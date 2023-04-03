@@ -149,9 +149,9 @@ def load_trained_state(model,name,sigma,use_train):
 
     # -- skip if needed --
     if not(use_train == "true"): return
-    ca_fwd = "dnls_k"
+    ca_fwd = "stnls_k"
 
-    if ca_fwd == "dnls_k":
+    if ca_fwd == "stnls_k":
         if abs(sigma-50.) < 1e-10:
             model_path = "b118f3a8-f1bf-43b5-9853-b0d346c548a9-epoch=02.ckpt"
             # model_path = "26cc2011-dca1-43ae-aa41-0da32a259274-epoch=58.ckpt"

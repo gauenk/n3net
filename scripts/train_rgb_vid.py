@@ -221,7 +221,7 @@ def main():
     # exp_lists['isize'] = ['128_128']
     # exps_b = cache_io.mesh_pydicts(exp_lists) # create mesh
 
-    # -- try training "dnls_k" without flow --
+    # -- try training "stnls_k" without flow --
     # exp_lists['flow'] = ['false']
     # exps_c = cache_io.mesh_pydicts(exp_lists) # create mesh
 

@@ -15,7 +15,7 @@ from pathlib import Path
 from easydict import EasyDict as edict
 
 # -- data --
-import dnls
+import stnls
 import data_hub
 
 # -- optical flow --

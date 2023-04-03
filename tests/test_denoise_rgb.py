@@ -28,7 +28,7 @@ from einops import rearrange,repeat
 import data_hub
 
 # -- package imports [to test] --
-import dnls # supporting
+import stnls # supporting
 from torchvision.transforms.functional import center_crop
 
 # -- package imports [to test] --

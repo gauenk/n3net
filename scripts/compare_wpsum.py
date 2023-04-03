@@ -34,9 +34,9 @@ import n3net.shared_model.ops as n3net_ops
 from n3net.original import index_neighbours
 
 # -- wpsum --
-from dnls import reducers as dnls_r
+from stnls import reducers as stnls_r
 
-def prepare_data_dnls(_y,_x,_I,H,W):
+def prepare_data_stnls(_y,_x,_I,H,W):
     print("_y.shape: ",_y.shape)
     print("_x.shape: ",_x.shape)
     print("_I.shape: ",_I.shape)
@@ -86,8 +86,8 @@ def prepare_data_dnls(_y,_x,_I,H,W):
     return _y,_x,I
 
 def prepare_data(_y,_x,_I,H,W,name):
-    if name == "dnls":
-        _y,_x,_I = prepare_data_dnls(_y,_x,_I,H,W)
+    if name == "stnls":
+        _y,_x,_I = prepare_data_stnls(_y,_x,_I,H,W)
     else:
         _x = rearrange(_x,'t c ph pw nH nW -> t (nH nW) (c ph pw)')
         _x = _x.contiguous()
@@ -145,21 +145,21 @@ def run_exp(_cfg):
     # print("Wmat.shape: ",Wmat.shape)
     # print("I.shape: ",I.shape)
 
-    # -- run dnls --
-    Wmat_dnls = rearrange(Wmat,'t hw s k -> k (t hw) s').contiguous()
-    y_dnls,x_dnls,I_dnls = prepare_data(Wmat,vid,I,H,W,"dnls")
-    wpsum = dnls_r.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
+    # -- run stnls --
+    Wmat_stnls = rearrange(Wmat,'t hw s k -> k (t hw) s').contiguous()
+    y_stnls,x_stnls,I_stnls = prepare_data(Wmat,vid,I,H,W,"stnls")
+    wpsum = stnls_r.WeightedPatchSumHeads(ps, pt, h_off=h_off,w_off=w_off,
                                          dilation=dil, adj=adj, exact=exact,
                                          rbwd=rbwd,nbwd=nbwd,
                                          reflect_bounds=reflect_bounds)
-    print("Wmat_dnls.shape: ",Wmat_dnls.shape)
+    print("Wmat_stnls.shape: ",Wmat_stnls.shape)
     # print("vid.shape, Wmat.shape, I.shape: ",vid.shape, Wmat.shape, I.shape)
     if cfg.warmup:
-        out = wpsum(vid[None,:],Wmat_dnls[None,:],I_dnls[None,:])
+        out = wpsum(vid[None,:],Wmat_stnls[None,:],I_stnls[None,:])
         th.cuda.synchronize()
-    with TimeIt(timer,"dnls_fwd"):
-        out_dnls = wpsum(x_dnls[None,:],y_dnls[None,:],I_dnls[None,:])
-    out_dnls = rearrange(out_dnls,'1 k (t hw) c ph pw -> t hw (c ph pw) k',t=b)
+    with TimeIt(timer,"stnls_fwd"):
+        out_stnls = wpsum(x_stnls[None,:],y_stnls[None,:],I_stnls[None,:])
+    out_stnls = rearrange(out_stnls,'1 k (t hw) c ph pw -> t hw (c ph pw) k',t=b)
 
     # -- run n3net --
     vid_n3 = vid.requires_grad_(True)
@@ -188,23 +188,23 @@ def run_exp(_cfg):
     print("out_n3.shape: ",out_n3.shape)
 
     # -- compare --
-    cmp_fwd = th.abs(out_n3 - out_dnls).mean()
+    cmp_fwd = th.abs(out_n3 - out_stnls).mean()
 
     # -- create grad --
     # grad = th.ones_like(out_n3)
     grad = th.randn_like(out_n3)
 
-    # -- backward dnls --
-    with TimeIt(timer,"dnls_bwd"):
-        th.autograd.backward(out_dnls,grad)
+    # -- backward stnls --
+    with TimeIt(timer,"stnls_bwd"):
+        th.autograd.backward(out_stnls,grad)
 
     # -- backward n3net --
     with TimeIt(timer,"n3net_bwd"):
         th.autograd.backward(out_n3,grad)
 
     # -- cmp --
-    cmps = {"x":(vid_n3,x_dnls),
-            "y":(y_n3,y_dnls)}
+    cmps = {"x":(vid_n3,x_stnls),
+            "y":(y_n3,y_stnls)}
     cmp_bwd = {}
     for name,pair in cmps.items():
         if name == "y":

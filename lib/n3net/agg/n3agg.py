@@ -1,10 +1,10 @@
 """
 
-Aggregation using the dnls method
+Aggregation using the stnls method
 
 """
 
-import dnls
+import stnls
 import n3net
 import torch as th
 from einops import rearrange
@@ -22,7 +22,7 @@ class N3Agg():
         only_full = False
         rbounds = False
         border_str = "reflect" if rbounds else "zero"
-        self.unfold = dnls.iUnfold(ps,coords,stride=stride0,dilation=dil,
+        self.unfold = stnls.iUnfold(ps,coords,stride=stride0,dilation=dil,
                                    adj=adj,border=border_str,only_full=only_full)
 
     def __call__(self,vid,dists,inds):
